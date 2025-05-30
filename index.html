@@ -7,28 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, onSnapshot, serverTimestamp, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_AUTH_DOMAIN",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_STORAGE_BUCKET",
-            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-            appId: "YOUR_APP_ID"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        setLogLevel('debug');
-
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'arrakis-tycoon-default';
-        let userId = auth.currentUser?.uid || `anon-${crypto.randomUUID()}`; // Initial fallback
-
-        // --- Game Data Structure ---
+        // Game Data Structure
         let gameData = {
             character: {
                 house: null, 
@@ -73,73 +52,29 @@
             currentTab: 'game'
         };
 
-        const gameDocRef = () => doc(db, "artifacts", appId, "users", userId, "playerGameSaves", "mainSave");
-
-        // --- Game Logic Functions ---
-        async function saveGame() {
-            if (!userId.startsWith('anon-') && gameData.gameInitialized) { 
-                try {
-                    gameData.lastUpdated = serverTimestamp();
-                    await setDoc(gameDocRef(), gameData, { merge: true });
-                    addLog("Game Saved to Cloud.", "success");
-                } catch (error) {
-                    console.error("Error saving game state to Firestore:", error);
-                    addLog("Error saving game. Check console.", "error");
-                }
-            } else if (gameData.gameInitialized) {
+        // Game Logic Functions
+        function saveGame() {
+            if (gameData.gameInitialized) {
                 localStorage.setItem("arrakisTycoonData_local", JSON.stringify(gameData));
-                addLog("Game Saved Locally (Anonymous User).", "info");
+                addLog("Game Saved Locally.", "info");
             }
         }
 
-        async function loadGame() {
-            if (!userId.startsWith('anon-')) {
-                try {
-                    const docSnap = await getDoc(gameDocRef());
-                    if (docSnap.exists()) {
-                        const loaded = docSnap.data();
-                        Object.assign(gameData, loaded); 
-                        gameData.character = { ...getDefaultCharacterState(), ...loaded.character };
-                        gameData.resources = { ...getDefaultResourcesState(), ...loaded.resources };
-                        gameData.harvesters = { ...getDefaultHarvestersState(), ...loaded.harvesters };
-                        gameData.upgrades = { ...getDefaultUpgradesState(), ...loaded.upgrades };
-                        
-                        addLog("Game Loaded from Cloud.", "success");
-                        if (!gameData.gameInitialized) { 
-                           showCharacterCreator();
-                        } else {
-                           startGameLoop();
-                           updateUI();
-                        }
-                    } else {
-                        addLog("No cloud save found. Starting new game.", "info");
-                        showCharacterCreator(); 
-                    }
-                } catch (error) {
-                    console.error("Error loading game state from Firestore:", error);
-                    addLog("Error loading cloud save. Trying local.", "error");
-                    loadGameLocalFallback();
-                }
-            } else {
-                loadGameLocalFallback();
-            }
-        }
-        
-        function loadGameLocalFallback() {
+        function loadGame() {
             const localSave = localStorage.getItem("arrakisTycoonData_local");
             if (localSave) {
                 Object.assign(gameData, JSON.parse(localSave));
-                 gameData.character = { ...getDefaultCharacterState(), ...gameData.character };
-                 gameData.resources = { ...getDefaultResourcesState(), ...gameData.resources };
-                 gameData.harvesters = { ...getDefaultHarvestersState(), ...gameData.harvesters };
-                 gameData.upgrades = { ...getDefaultUpgradesState(), ...gameData.upgrades };
+                gameData.character = { ...getDefaultCharacterState(), ...gameData.character };
+                gameData.resources = { ...getDefaultResourcesState(), ...gameData.resources };
+                gameData.harvesters = { ...getDefaultHarvestersState(), ...gameData.harvesters };
+                gameData.upgrades = { ...getDefaultUpgradesState(), ...gameData.upgrades };
                 addLog("Game Loaded from Local Storage.", "info");
-                 if (!gameData.gameInitialized) {
+                if (!gameData.gameInitialized) {
                     showCharacterCreator();
-                 } else {
+                } else {
                     startGameLoop();
                     updateUI();
-                 }
+                }
             } else {
                 addLog("No local save found. Starting new game.", "info");
                 showCharacterCreator();
@@ -159,13 +94,9 @@
             return { spice_auto_cost: 100, water_auto_cost: 150, spice_manual_upgrade_cost: 20 };
         }
 
-
         function showCharacterCreator() {
             document.getElementById('characterCreatorScreen').classList.remove('hidden');
             document.getElementById('mainGameScreen').classList.add('hidden');
-            // Ensure other main screens are also hidden if character creator is shown
-            document.getElementById('loreScreen').classList.add('hidden');
-            document.getElementById('chroniclerScreen').classList.add('hidden');
         }
 
         function finalizeCharacterCreation() {
@@ -186,21 +117,27 @@
             gameData.character.background = background.value;
             gameData.character.name = charName.trim();
 
+            // Apply house and background bonuses
             if (gameData.character.house === 'Fremen') gameData.resources.water += 20;
+            if (gameData.character.house === 'Harkonnen') gameData.resources.solari += 100;
+            if (gameData.character.house === 'Atreides') gameData.character.maxHealth += 20;
+            if (gameData.character.house === 'Corrino') gameData.resources.plasteel += 10;
+            
             if (gameData.character.background === 'Merchant') gameData.resources.solari += 150;
             if (gameData.character.background === 'Technician') gameData.resources.plasteel += 5;
+            if (gameData.character.background === 'Scout') gameData.resources.water += 10;
+            if (gameData.character.background === 'Warrior') gameData.character.health = gameData.character.maxHealth;
 
             gameData.gameInitialized = true;
             document.getElementById('characterCreatorScreen').classList.add('hidden');
             document.getElementById('mainGameScreen').classList.remove('hidden');
-            switchTab('game'); // Default to game tab after creation
+            switchTab('game');
             addLog(`Welcome, ${gameData.character.name} of House ${gameData.character.house}! Your journey on Arrakis begins.`, "event");
             startGameLoop();
             updateUI();
             saveGame(); 
         }
         window.finalizeCharacterCreation = finalizeCharacterCreation;
-
 
         function gameTick() {
             if (!gameData.gameInitialized) return;
@@ -212,17 +149,29 @@
             const autoWaterPerTick = gameData.harvesters.water_collector_auto_count * (1 + gameData.harvesters.water_collector_auto_level * 0.2);
             gameData.resources.water += autoWaterPerTick;
             
+            // Random events
             if (Math.random() < 0.01) { 
                 const events = [
                     { msg: "A small tremor reveals a pocket of Spice!", spice: 10 + (5 * gameData.harvesters.spice_harvester_auto_level), type: "event" },
                     { msg: "A minor sandstorm kicks up. Visibility low.", type: "lore" },
-                    { msg: "You find a discarded water flask!", water: 5, type: "event" }
+                    { msg: "You find a discarded water flask!", water: 5, type: "event" },
+                    { msg: "Shai-Hulud stirs in the deep desert...", type: "lore" },
+                    { msg: "A Fremen trading party passes by your settlement.", type: "lore" }
                 ];
                 const randomEvent = events[Math.floor(Math.random() * events.length)];
                 addLog(randomEvent.msg, randomEvent.type);
                 if(randomEvent.spice) gameData.resources.spice += randomEvent.spice;
                 if(randomEvent.water) gameData.resources.water += randomEvent.water;
             }
+
+            // Passive solari generation from spice
+            if (gameData.resources.spice >= 10) {
+                const solariGain = Math.floor(gameData.resources.spice / 10);
+                gameData.resources.solari += solariGain;
+                gameData.resources.spice -= solariGain * 10;
+                gameData.stats.totalSolariEarned += solariGain;
+            }
+
             updateUI();
         }
 
@@ -308,7 +257,6 @@
         }
         window.upgradeAutoHarvester = upgradeAutoHarvester;
 
-
         function craftItem(recipeId) {
             const recipe = gameData.craftingRecipes.find(r => r.id === recipeId);
             if (!recipe) {
@@ -371,73 +319,6 @@
         }
         window.useItem = useItem;
 
-        // --- Gemini API Integration for Holo-Chronicler ---
-        async function askChronicler() {
-            const questionInput = document.getElementById('chroniclerQuestion');
-            const answerDisplay = document.getElementById('chroniclerAnswer');
-            const askButton = document.getElementById('askChroniclerBtn');
-
-            if (!questionInput || !answerDisplay || !askButton) {
-                console.error("Chronicler UI elements not found.");
-                return;
-            }
-
-            const question = questionInput.value.trim();
-            if (!question) {
-                answerDisplay.innerHTML = `<p class="text-amber-300">The Chronicler awaits your query.</p>`;
-                return;
-            }
-
-            answerDisplay.innerHTML = `<p class="text-sky-300 animate-pulse">The Holo-Chronicler is processing your query...</p>`;
-            askButton.disabled = true;
-            questionInput.disabled = true;
-
-            const prompt = `You are an ancient Holo-Chronicler from the planet Arrakis, possessing vast knowledge of the Dune universe by Frank Herbert. Provide a concise, lore-accurate, and engaging answer to the following question. If the question is outside of Dune lore, politely state that your archives do not contain such information. Question: "${question}"`;
-            
-            let chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
-            const payload = { contents: chatHistory };
-            const apiKey = ""; // Provided by Canvas environment
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-
-            try {
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    console.error("Gemini API Error:", errorData);
-                    throw new Error(`API request failed with status ${response.status}: ${errorData?.error?.message || response.statusText}`);
-                }
-
-                const result = await response.json();
-
-                if (result.candidates && result.candidates.length > 0 &&
-                    result.candidates[0].content && result.candidates[0].content.parts &&
-                    result.candidates[0].content.parts.length > 0) {
-                    const text = result.candidates[0].content.parts[0].text;
-                    // Sanitize basic HTML, or use a more robust sanitizer if needed
-                    const sanitizedText = text.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
-                    answerDisplay.innerHTML = `<p class="text-amber-100">${sanitizedText}</p>`;
-                } else {
-                    answerDisplay.innerHTML = `<p class="text-red-400">The Chronicler's connection is unstable. No coherent data received.</p>`;
-                    console.warn("Unexpected response structure from Gemini API:", result);
-                }
-            } catch (error) {
-                console.error("Error calling Gemini API:", error);
-                answerDisplay.innerHTML = `<p class="text-red-500">Error: The Holo-Chronicler's circuits are damaged. ${error.message}</p>`;
-            } finally {
-                askButton.disabled = false;
-                questionInput.disabled = false;
-                questionInput.value = ""; // Clear input after asking
-            }
-        }
-        window.askChronicler = askChronicler;
-        // --- End Gemini API Integration ---
-
-
         function addLog(message, type = "info") { 
             const logScreen = document.getElementById('logScreen');
             if (!logScreen) return; 
@@ -463,22 +344,6 @@
         function updateUI() {
             if (!gameData.gameInitialized && !document.getElementById('characterCreatorScreen').classList.contains('hidden')) {
                 return;
-            }
-            const elementsToUpdate = [
-                'spiceDisplay', 'waterDisplay', 'solariDisplay', 'plasteelDisplay',
-                'characterNameDisplay', 'characterHouseDisplay', 'characterBackgroundDisplay',
-                'healthDisplay', 'healthBarFill', 'manualSpiceLevel', 'manualSpiceUpgradeCost',
-                'autoSpiceCount', 'autoSpiceLevel', 'autoSpiceCost', 'autoSpiceUpgradeEffCost',
-                'autoWaterCount', 'autoWaterLevel', 'autoWaterCost', 'autoWaterUpgradeEffCost',
-                'craftingRecipesList', 'inventoryList'
-            ];
-            for (const id of elementsToUpdate) {
-                if (!document.getElementById(id)) {
-                    if (['spiceDisplay', 'characterNameDisplay'].includes(id) && gameData.gameInitialized) { 
-                         console.error(`Critical UI element '${id}' not found. UI update aborted.`);
-                         return;
-                    }
-                }
             }
 
             document.getElementById('spiceDisplay').textContent = Math.floor(gameData.resources.spice);
@@ -556,57 +421,27 @@
 
             if (tabElement) {
                  tabElement.classList.remove('hidden');
-            } else {
-                console.error(`Tab content for '${tabName}Screen' not found.`);
             }
 
             if (buttonElement) {
                 buttonElement.classList.add('bg-amber-600', 'text-white', 'font-semibold');
                 buttonElement.classList.remove('bg-stone-700', 'text-amber-300');
-            } else {
-                 console.error(`Tab button for '${tabName}' not found.`);
             }
 
-            if (['crafting', 'inventory', 'upgrades', 'character', 'chronicler'].includes(tabName)) {
+            if (['crafting', 'inventory', 'upgrades', 'character'].includes(tabName)) {
                  updateUI(); 
             }
         }
         window.switchTab = switchTab;
 
-        onAuthStateChanged(auth, async (user) => {
-            const authStatusElement = document.getElementById('authStatus');
-            if (user) {
-                userId = user.uid;
-                console.log("User is signed in with UID:", userId);
-                if(authStatusElement) authStatusElement.textContent = `User ID: ${userId.substring(0,12)}...`;
-                await loadGame(); 
-            } else {
-                console.log("User is signed out or not yet authenticated. Trying anonymous sign-in.");
-                userId = `anon-${crypto.randomUUID()}`; 
-                if(authStatusElement) authStatusElement.textContent = "User: Anonymous (Cloud Save Disabled)";
-                try {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                } catch (error) {
-                    console.error("Error during anonymous sign-in:", error);
-                    if(authStatusElement) authStatusElement.textContent = "Sign-in Error. Using Local Save.";
-                    loadGameLocalFallback(); 
-                }
-            }
-        });
-
+        // Initialize game on page load
         document.addEventListener('DOMContentLoaded', () => {
-            // Ensure character creator is shown if game not initialized, otherwise default to game tab.
+            loadGame();
             if (!gameData.gameInitialized) {
                 showCharacterCreator();
             } else {
                 switchTab('game'); 
             }
-            const appIdDisplayElement = document.getElementById('appIdDisplay');
-            if (appIdDisplayElement) appIdDisplayElement.textContent = appId;
         });
 
     </script>
@@ -635,19 +470,19 @@
                 <div>
                     <p class="text-sm font-medium text-amber-200 mb-1">Choose your House Affiliation:</p>
                     <div class="grid grid-cols-2 gap-3">
-                        <div><input type="radio" name="house" value="Atreides" id="houseAtreides" class="sr-only peer"><label for="houseAtreides" class="block bg-stone-700 p-3 rounded-md text-center cursor-pointer peer-checked:bg-green-600 peer-checked:text-white hover:bg-stone-600">Atreides</label></div>
-                        <div><input type="radio" name="house" value="Harkonnen" id="houseHarkonnen" class="sr-only peer"><label for="houseHarkonnen" class="block bg-stone-700 p-3 rounded-md text-center cursor-pointer peer-checked:bg-red-600 peer-checked:text-white hover:bg-stone-600">Harkonnen</label></div>
-                        <div><input type="radio" name="house" value="Corrino" id="houseCorrino" class="sr-only peer"><label for="houseCorrino" class="block bg-stone-700 p-3 rounded-md text-center cursor-pointer peer-checked:bg-yellow-500 peer-checked:text-black hover:bg-stone-600">Corrino</label></div>
-                        <div><input type="radio" name="house" value="Fremen" id="houseFremen" class="sr-only peer"><label for="houseFremen" class="block bg-stone-700 p-3 rounded-md text-center cursor-pointer peer-checked:bg-sky-600 peer-checked:text-white hover:bg-stone-600">Fremen</label></div>
+                        <div><input type="radio" name="house" value="Atreides" id="houseAtreides" class="sr-only peer"><label for="houseAtreides" class="block bg-stone-700 p-3 rounded-md text-center cursor-pointer peer-checked:bg-green-600 peer-checked:text-white hover:bg-stone-600">Atreides<br><span class="text-xs">+20 Max Health</span></label></div>
+                        <div><input type="radio" name="house" value="Harkonnen" id="houseHarkonnen" class="sr-only peer"><label for="houseHarkonnen" class="block bg-stone-700 p-3 rounded-md text-center cursor-pointer peer-checked:bg-red-600 peer-checked:text-white hover:bg-stone-600">Harkonnen<br><span class="text-xs">+100 Solari</span></label></div>
+                        <div><input type="radio" name="house" value="Corrino" id="houseCorrino" class="sr-only peer"><label for="houseCorrino" class="block bg-stone-700 p-3 rounded-md text-center cursor-pointer peer-checked:bg-yellow-500 peer-checked:text-black hover:bg-stone-600">Corrino<br><span class="text-xs">+10 Plasteel</span></label></div>
+                        <div><input type="radio" name="house" value="Fremen" id="houseFremen" class="sr-only peer"><label for="houseFremen" class="block bg-stone-700 p-3 rounded-md text-center cursor-pointer peer-checked:bg-sky-600 peer-checked:text-white hover:bg-stone-600">Fremen<br><span class="text-xs">+20 Water</span></label></div>
                     </div>
                 </div>
                 <div>
                     <p class="text-sm font-medium text-amber-200 mb-1">Choose your Background:</p>
                      <div class="grid grid-cols-2 gap-3">
-                        <div><input type="radio" name="background" value="Scout" id="bgScout" class="sr-only peer"><label for="bgScout" class="block bg-stone-700 p-3 rounded-md text-center cursor-pointer peer-checked:bg-teal-600 peer-checked:text-white hover:bg-stone-600">Scout</label></div>
-                        <div><input type="radio" name="background" value="Technician" id="bgTechnician" class="sr-only peer"><label for="bgTechnician" class="block bg-stone-700 p-3 rounded-md text-center cursor-pointer peer-checked:bg-indigo-600 peer-checked:text-white hover:bg-stone-600">Technician</label></div>
-                        <div><input type="radio" name="background" value="Warrior" id="bgWarrior" class="sr-only peer"><label for="bgWarrior" class="block bg-stone-700 p-3 rounded-md text-center cursor-pointer peer-checked:bg-rose-600 peer-checked:text-white hover:bg-stone-600">Warrior</label></div>
-                        <div><input type="radio" name="background" value="Merchant" id="bgMerchant" class="sr-only peer"><label for="bgMerchant" class="block bg-stone-700 p-3 rounded-md text-center cursor-pointer peer-checked:bg-lime-600 peer-checked:text-white hover:bg-stone-600">Merchant</label></div>
+                        <div><input type="radio" name="background" value="Scout" id="bgScout" class="sr-only peer"><label for="bgScout" class="block bg-stone-700 p-3 rounded-md text-center cursor-pointer peer-checked:bg-teal-600 peer-checked:text-white hover:bg-stone-600">Scout<br><span class="text-xs">+10 Water</span></label></div>
+                        <div><input type="radio" name="background" value="Technician" id="bgTechnician" class="sr-only peer"><label for="bgTechnician" class="block bg-stone-700 p-3 rounded-md text-center cursor-pointer peer-checked:bg-indigo-600 peer-checked:text-white hover:bg-stone-600">Technician<br><span class="text-xs">+5 Plasteel</span></label></div>
+                        <div><input type="radio" name="background" value="Warrior" id="bgWarrior" class="sr-only peer"><label for="bgWarrior" class="block bg-stone-700 p-3 rounded-md text-center cursor-pointer peer-checked:bg-rose-600 peer-checked:text-white hover:bg-stone-600">Warrior<br><span class="text-xs">Full Health</span></label></div>
+                        <div><input type="radio" name="background" value="Merchant" id="bgMerchant" class="sr-only peer"><label for="bgMerchant" class="block bg-stone-700 p-3 rounded-md text-center cursor-pointer peer-checked:bg-lime-600 peer-checked:text-white hover:bg-stone-600">Merchant<br><span class="text-xs">+150 Solari</span></label></div>
                     </div>
                 </div>
                 <button onclick="finalizeCharacterCreation()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition-colors mt-6">Begin Your Journey on Arrakis</button>
@@ -659,7 +494,7 @@
         <header class="bg-stone-800 p-4 rounded-lg shadow-xl mb-4">
             <div class="flex flex-col sm:flex-row justify-between items-center">
                 <h1 class="text-3xl sm:text-4xl font-orbitron text-amber-500 mb-2 sm:mb-0">Arrakis Tycoon</h1>
-                <div id="authStatus" class="text-xs text-stone-400">Initializing...</div>
+                <div class="text-xs text-stone-400">The spice must flow...</div>
             </div>
              <nav class="mt-4 flex flex-wrap justify-center sm:justify-start space-x-1 sm:space-x-2">
                 <button onclick="switchTab('game')" class="tab-button py-2 px-3 sm:px-4 rounded-t-md text-sm font-medium">Game</button>
@@ -668,7 +503,6 @@
                 <button onclick="switchTab('crafting')" class="tab-button py-2 px-3 sm:px-4 rounded-t-md text-sm font-medium">Crafting</button>
                 <button onclick="switchTab('inventory')" class="tab-button py-2 px-3 sm:px-4 rounded-t-md text-sm font-medium">Inventory</button>
                 <button onclick="switchTab('lore')" class="tab-button py-2 px-3 sm:px-4 rounded-t-md text-sm font-medium">Lore</button>
-                <button onclick="switchTab('chronicler')" class="tab-button py-2 px-3 sm:px-4 rounded-t-md text-sm font-medium">✨ Holo-Chronicler</button>
             </nav>
         </header>
 
@@ -677,26 +511,28 @@
                 <div class="md:col-span-1 space-y-4">
                     <div class="bg-stone-700 p-4 rounded-lg shadow">
                         <h3 class="text-xl font-semibold text-amber-400 mb-2">Resources</h3>
-                        <p>Spice: <span id="spiceDisplay" class="font-bold text-amber-300">0</span></p>
-                        <p>Water: <span id="waterDisplay" class="font-bold text-sky-300">0</span></p>
-                        <p>Solari: <span id="solariDisplay" class="font-bold text-yellow-300">0</span></p>
-                        <p>Plasteel: <span id="plasteelDisplay" class="font-bold text-slate-300">0</span></p>
+                        <p>🏜️ Spice: <span id="spiceDisplay" class="font-bold text-amber-300">0</span></p>
+                        <p>💧 Water: <span id="waterDisplay" class="font-bold text-sky-300">0</span></p>
+                        <p>💰 Solari: <span id="solariDisplay" class="font-bold text-yellow-300">0</span></p>
+                        <p>🔩 Plasteel: <span id="plasteelDisplay" class="font-bold text-slate-300">0</span></p>
                     </div>
                     <div class="bg-stone-700 p-4 rounded-lg shadow">
                         <h3 class="text-xl font-semibold text-amber-400 mb-2">Manual Actions</h3>
-                        <button onclick="manualHarvestSpice()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2 px-4 rounded-md mb-2">Harvest Spice</button>
-                        </div>
+                        <button onclick="manualHarvestSpice()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2 px-4 rounded-md mb-2 transition-colors">🏜️ Harvest Spice</button>
+                        <p class="text-xs text-stone-300 text-center">Click to gather spice manually</p>
+                    </div>
                 </div>
                 <div class="md:col-span-2 bg-stone-700 p-4 rounded-lg shadow">
-                    <h3 class="text-xl font-semibold text-amber-400 mb-2">Event Log</h3>
+                    <h3 class="text-xl font-semibold text-amber-400 mb-2">📜 Event Log</h3>
                     <div id="logScreen" class="h-64 sm:h-96 overflow-y-auto bg-stone-800 p-3 rounded-md border border-stone-600 text-sm">
-                        </div>
+                        <p class="text-stone-400 text-center">Welcome to Arrakis. Your journey begins...</p>
+                    </div>
                 </div>
             </div>
         </div>
         
         <div id="characterScreen" class="main-tab-content hidden bg-stone-800 p-4 rounded-lg shadow-xl">
-            <h2 class="text-2xl font-orbitron text-amber-500 mb-4">Character Status</h2>
+            <h2 class="text-2xl font-orbitron text-amber-500 mb-4">👤 Character Status</h2>
             <div class="bg-stone-700 p-4 rounded-lg shadow space-y-2">
                 <p>Name: <span id="characterNameDisplay" class="font-semibold text-amber-300"></span></p>
                 <p>House: <span id="characterHouseDisplay" class="font-semibold text-amber-300"></span></p>
@@ -707,80 +543,78 @@
                         <div id="healthBarFill" class="progress-bar-fill h-4 rounded-full"></div>
                     </div>
                 </div>
-                </div>
+            </div>
         </div>
 
         <div id="upgradesScreen" class="main-tab-content hidden bg-stone-800 p-4 rounded-lg shadow-xl">
-            <h2 class="text-2xl font-orbitron text-amber-500 mb-4">Upgrades</h2>
+            <h2 class="text-2xl font-orbitron text-amber-500 mb-4">⚙️ Upgrades</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="bg-stone-700 p-4 rounded-lg shadow">
-                    <h3 class="text-lg font-semibold text-amber-400 mb-2">Manual Spice Harvesting</h3>
+                    <h3 class="text-lg font-semibold text-amber-400 mb-2">🏜️ Manual Spice Harvesting</h3>
                     <p class="text-sm text-stone-300">Level: <span id="manualSpiceLevel">1</span></p>
                     <p class="text-sm text-stone-300 mb-2">Cost: <span id="manualSpiceUpgradeCost">20</span> Solari</p>
-                    <button onclick="upgradeManualSpiceHarvester()" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-semibold py-2 px-3 rounded-md text-sm">Upgrade</button>
+                    <button onclick="upgradeManualSpiceHarvester()" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-semibold py-2 px-3 rounded-md text-sm transition-colors">Upgrade</button>
                 </div>
                 <div class="bg-stone-700 p-4 rounded-lg shadow">
-                    <h3 class="text-lg font-semibold text-amber-400 mb-2">Spice Auto-Harvesters</h3>
+                    <h3 class="text-lg font-semibold text-amber-400 mb-2">🤖 Spice Auto-Harvesters</h3>
                     <p class="text-sm text-stone-300">Count: <span id="autoSpiceCount">0</span> | Level: <span id="autoSpiceLevel">0</span></p>
                     <p class="text-sm text-stone-300 mb-1">Buy New: <span id="autoSpiceCost">100</span> Solari</p>
-                    <button onclick="buyAutoHarvester('spice')" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-3 rounded-md text-sm mb-2">Buy Harvester</button>
+                    <button onclick="buyAutoHarvester('spice')" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-3 rounded-md text-sm mb-2 transition-colors">Buy Harvester</button>
                     <p class="text-sm text-stone-300 mb-1">Upgrade Efficiency: <span id="autoSpiceUpgradeEffCost">N/A</span> Solari</p>
-                    <button onclick="upgradeAutoHarvester('spice')" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-semibold py-2 px-3 rounded-md text-sm">Upgrade Efficiency</button>
+                    <button onclick="upgradeAutoHarvester('spice')" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-semibold py-2 px-3 rounded-md text-sm transition-colors">Upgrade Efficiency</button>
                 </div>
                 <div class="bg-stone-700 p-4 rounded-lg shadow">
-                    <h3 class="text-lg font-semibold text-amber-400 mb-2">Water Auto-Collectors</h3>
+                    <h3 class="text-lg font-semibold text-amber-400 mb-2">💧 Water Auto-Collectors</h3>
                     <p class="text-sm text-stone-300">Count: <span id="autoWaterCount">0</span> | Level: <span id="autoWaterLevel">0</span></p>
                     <p class="text-sm text-stone-300 mb-1">Buy New: <span id="autoWaterCost">150</span> Solari</p>
-                    <button onclick="buyAutoHarvester('water')" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-3 rounded-md text-sm mb-2">Buy Collector</button>
+                    <button onclick="buyAutoHarvester('water')" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-3 rounded-md text-sm mb-2 transition-colors">Buy Collector</button>
                     <p class="text-sm text-stone-300 mb-1">Upgrade Efficiency: <span id="autoWaterUpgradeEffCost">N/A</span> Solari</p>
-                    <button onclick="upgradeAutoHarvester('water')" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-semibold py-2 px-3 rounded-md text-sm">Upgrade Efficiency</button>
+                    <button onclick="upgradeAutoHarvester('water')" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-semibold py-2 px-3 rounded-md text-sm transition-colors">Upgrade Efficiency</button>
                 </div>
-                </div>
+            </div>
         </div>
         
         <div id="craftingScreen" class="main-tab-content hidden bg-stone-800 p-4 rounded-lg shadow-xl">
-            <h2 class="text-2xl font-orbitron text-amber-500 mb-4">Crafting Station</h2>
+            <h2 class="text-2xl font-orbitron text-amber-500 mb-4">🔧 Crafting Station</h2>
             <div id="craftingRecipesList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                </div>
+            </div>
         </div>
         
         <div id="inventoryScreen" class="main-tab-content hidden bg-stone-800 p-4 rounded-lg shadow-xl">
-            <h2 class="text-2xl font-orbitron text-amber-500 mb-4">Inventory</h2>
+            <h2 class="text-2xl font-orbitron text-amber-500 mb-4">🎒 Inventory</h2>
             <div id="inventoryList" class="space-y-3">
-                </div>
+            </div>
         </div>
 
         <div id="loreScreen" class="main-tab-content hidden bg-stone-800 p-4 rounded-lg shadow-xl">
-            <h2 class="text-2xl font-orbitron text-amber-500 mb-4">Whispers of Arrakis (Lore)</h2>
+            <h2 class="text-2xl font-orbitron text-amber-500 mb-4">📚 Whispers of Arrakis (Lore)</h2>
             <div id="loreContent" class="prose prose-sm sm:prose prose-invert max-w-none bg-stone-700 p-4 rounded-md shadow h-96 overflow-y-auto">
-                <h3 class="text-amber-400">The Spice Melange</h3>
+                <h3 class="text-amber-400">🏜️ The Spice Melange</h3>
                 <p>Melange, colloquially known as "the spice," is a psychoactive chemical substance found only on the desert planet Arrakis. It is the most valuable and rarest commodity in the Imperium.</p>
                 <p>The spice extends life, enhances sensory perception and awareness, and for a select few, unlocks prescience—the ability to see limited pathways of the future. This prescience is essential for Navigators of the Spacing Guild, who use it to guide starships through foldspace, making interstellar travel possible.</p>
-                <h3 class="text-amber-400">Shai-Hulud (The Sandworms)</h3>
-                <p>The great sandworms of Arrakis, also known by the Fremen as Shai-Hulud or "Old Man of the Desert," are colossal creatures that dominate the deep desert. They are inextricably linked to the spice cycle...</p>
-                <h3 class="text-amber-400">The Fremen</h3>
-                <p>The Fremen are the native human inhabitants of Arrakis...</p>
-                <h3 class="text-amber-400">The Stillsuit</h3>
-                <p>A stillsuit is a full-body suit worn in the open desert of Arrakis...</p>
+                
+                <h3 class="text-amber-400">🪱 Shai-Hulud (The Sandworms)</h3>
+                <p>The great sandworms of Arrakis, also known by the Fremen as Shai-Hulud or "Old Man of the Desert," are colossal creatures that dominate the deep desert. They are inextricably linked to the spice cycle, as their lifecycle produces the precious melange.</p>
+                <p>These massive beings can grow to lengths of over 400 meters and are attracted to rhythmic vibrations in the sand. The Fremen have learned to ride these magnificent creatures, using maker hooks and thumpers to control their movement.</p>
+                
+                <h3 class="text-amber-400">🏕️ The Fremen</h3>
+                <p>The Fremen are the native human inhabitants of Arrakis, descendants of the Zensunni wanderers who fled religious persecution. They have adapted perfectly to the harsh desert environment, developing a culture centered around water conservation and survival.</p>
+                <p>Their blue-within-blue eyes, caused by constant exposure to spice, mark them as true children of the desert. They possess unmatched fighting skills and an intimate knowledge of the desert that makes them formidable allies or enemies.</p>
+                
+                <h3 class="text-amber-400">🥽 The Stillsuit</h3>
+                <p>A stillsuit is a full-body suit worn in the open desert of Arrakis that is designed to preserve the body's moisture. The suit recycles all bodily fluids, including urine and perspiration, filtering and purifying them into drinkable water.</p>
+                <p>A properly maintained stillsuit can reduce water loss to as little as a thimbleful per day, making survival in the deep desert possible. The technology represents the pinnacle of Fremen engineering and desert adaptation.</p>
+                
+                <h3 class="text-amber-400">🏛️ The Great Houses</h3>
+                <p><strong>House Atreides:</strong> Known for their honor, loyalty, and just rule. Led by Duke Leto Atreides, they inspire fierce loyalty among their followers and are respected throughout the Imperium.</p>
+                <p><strong>House Harkonnen:</strong> The bitter enemies of House Atreides, known for their cruelty, cunning, and ruthless pursuit of power. They previously controlled Arrakis and its spice production.</p>
+                <p><strong>House Corrino:</strong> The Imperial House, rulers of the known universe for over 10,000 years. Emperor Shaddam IV sits upon the Golden Lion Throne, commanding the fearsome Sardaukar legions.</p>
             </div>
         </div>
-
-        <div id="chroniclerScreen" class="main-tab-content hidden bg-stone-800 p-4 rounded-lg shadow-xl">
-            <h2 class="text-2xl font-orbitron text-amber-500 mb-4">✨ Holo-Chronicler Archives</h2>
-            <p class="text-amber-200 mb-4">Pose your questions about the vast Dune universe to the ancient Holo-Chronicler. Its knowledge is immense, drawn from centuries of data.</p>
-            <div class="bg-stone-700 p-4 rounded-lg shadow">
-                <textarea id="chroniclerQuestion" rows="3" class="w-full bg-stone-600 text-amber-50 p-2 rounded-md border border-stone-500 focus:ring-amber-500 focus:border-amber-500 placeholder-stone-400" placeholder="Ask about Houses, planets, technology, creatures, history..."></textarea>
-                <button id="askChroniclerBtn" onclick="askChronicler()" class="mt-3 w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-md transition-colors">Query the Chronicler ✨</button>
-                <div id="chroniclerAnswer" class="mt-4 prose prose-sm sm:prose prose-invert max-w-none bg-stone-800 p-3 rounded-md border border-stone-600 min-h-[100px]">
-                    <p class="text-stone-400">The Chronicler awaits your query.</p>
-                </div>
-            </div>
-        </div>
-
 
         <footer class="text-center mt-8 py-4 border-t border-stone-700">
-            <p class="text-xs text-stone-400">Arrakis Tycoon v0.1.1 - A fan-made idle game. All Dune IP &copy; Herbert Properties LLC. Game &copy; Funcom.</p>
-            <p class="text-xs text-stone-500 mt-1">App ID: <span id="appIdDisplay"></span></p>
+            <p class="text-xs text-stone-400">Arrakis Tycoon v1.0 - A fan-made idle game inspired by Frank Herbert's Dune universe.</p>
+            <p class="text-xs text-stone-500 mt-1">All Dune intellectual property belongs to the Herbert Estate. This is a non-commercial fan project.</p>
         </footer>
     </div>
 
