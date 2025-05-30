@@ -1,0 +1,1651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arrakis Tycoon - Dune Adventure</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <script>
+        // Game Data Structure
+        let gameData = {
+            character: {
+                house: null, 
+                background: null, 
+                name: "Survivor",
+                health: 100,
+                maxHealth: 100,
+                attack: 10,
+                defense: 5,
+                level: 1,
+                experience: 0,
+                experienceToNextLevel: 100,
+                position: { x: 5, y: 5 },
+                equipment: {
+                    weapon: null,
+                    armor: null,
+                    accessory: null
+                }
+            },
+            resources: {
+                spice: 0,
+                water: 50, 
+                solari: 200,
+                plasteel: 0,
+                food: 20
+            },
+            harvesters: {
+                spice_harvester_manual_level: 1, 
+                spice_harvester_auto_level: 0,
+                spice_harvester_auto_count: 0,
+                water_collector_auto_level: 0,
+                water_collector_auto_count: 0,
+            },
+            upgrades: {
+                spice_auto_cost: 100, 
+                water_auto_cost: 150, 
+                spice_manual_upgrade_cost: 20, 
+            },
+            inventory: [], 
+            craftingRecipes: [
+                { id: 'basic_stillsuit_patch', name: 'Stillsuit Patch', cost: { water: 5, plasteel: 2 }, output: { id: 'stillsuit_patch_item', name: 'Stillsuit Patch', quantity: 1, type: 'consumable', effect: { health: 10 }}, description: "A basic patch for your stillsuit. Restores a bit of health by preventing dehydration."},
+                { id: 'purified_water', name: 'Purified Water', cost: { water: 10 }, output: { id: 'purified_water_item', name: 'Purified Water', quantity: 1, type: 'consumable', effect: { health: 25 }}, description: "Critical for survival. Restores health."},
+                { id: 'desert_ration', name: 'Desert Ration', cost: { water: 5, spice: 2 }, output: { id: 'desert_ration_item', name: 'Desert Ration', quantity: 1, type: 'consumable', effect: { food: 15 }}, description: "Compressed nutrients for desert travel."},
+                { id: 'crysknife', name: 'Crysknife', cost: { plasteel: 15, spice: 30 }, output: { id: 'crysknife_item', name: 'Crysknife', quantity: 1, type: 'weapon', stats: { attack: 15 }}, description: "Sacred Fremen weapon made from a sandworm tooth."}
+            ],
+            buildings: [
+                { id: 'spice_refinery', name: 'Spice Refinery', cost: { solari: 500, plasteel: 20 }, level: 0, maxLevel: 3, production: { spice: 5 }, upgradeCost: { solari: 750, plasteel: 30 }, description: "Refines raw spice into higher quality product." },
+                { id: 'water_still', name: 'Water Still', cost: { solari: 300, plasteel: 15 }, level: 0, maxLevel: 3, production: { water: 3 }, upgradeCost: { solari: 450, plasteel: 25 }, description: "Extracts water from the air." },
+                { id: 'barracks', name: 'Barracks', cost: { solari: 400, plasteel: 25 }, level: 0, maxLevel: 3, unitCapacity: 5, upgradeCost: { solari: 600, plasteel: 35 }, description: "Trains and houses your fighters." }
+            ],
+            units: [
+                { id: 'fighter', name: 'Fighter', cost: { solari: 100, food: 5 }, count: 0, stats: { attack: 5, defense: 3 }, upkeep: { food: 1 }, description: "Basic combat unit for protection." },
+                { id: 'harvester', name: 'Harvester', cost: { solari: 150, food: 3 }, count: 0, stats: { spiceGather: 3 }, upkeep: { food: 1 }, description: "Gathers spice from the desert." }
+            ],
+            map: {
+                width: 10,
+                height: 10,
+                visibleRadius: 2,
+                explored: {},
+                locations: [
+                    { x: 2, y: 2, type: 'settlement', name: 'Sietch Tabr', description: 'A hidden Fremen community', friendly: true },
+                    { x: 7, y: 3, type: 'ruins', name: 'Ancient Outpost', description: 'Ruins of an old outpost', loot: true },
+                    { x: 4, y: 8, type: 'oasis', name: 'Hidden Spring', description: 'A rare water source in the desert', resource: 'water' }
+                ],
+                enemies: []
+            },
+            quests: [
+                { 
+                    id: 'q1', 
+                    title: 'First Steps on Arrakis', 
+                    description: 'Survive your first day on the desert planet by gathering resources.',
+                    objectives: [
+                        { id: 'q1_o1', description: 'Harvest 20 Spice', target: 'spice', amount: 20, completed: false },
+                        { id: 'q1_o2', description: 'Craft a Stillsuit Patch', target: 'craft', itemId: 'basic_stillsuit_patch', completed: false }
+                    ],
+                    rewards: { solari: 100, experience: 50 },
+                    completed: false,
+                    active: true
+                },
+                {
+                    id: 'q2',
+                    title: 'Exploration Begins',
+                    description: 'Venture into the desert and discover what lies beyond.',
+                    objectives: [
+                        { id: 'q2_o1', description: 'Explore 5 new areas', target: 'explore', amount: 5, progress: 0, completed: false },
+                        { id: 'q2_o2', description: 'Defeat 2 enemies', target: 'combat', amount: 2, progress: 0, completed: false }
+                    ],
+                    rewards: { solari: 200, experience: 100, item: { id: 'desert_boots', name: 'Desert Boots', type: 'accessory', stats: { defense: 5 } } },
+                    completed: false,
+                    active: false
+                }
+            ],
+            combat: {
+                inCombat: false,
+                enemy: null,
+                playerTurn: true,
+                turnTimer: 0,
+                maxTurnTime: 5,
+                messages: []
+            },
+            settings: {
+                gameSpeed: 1000, 
+                soundEnabled: true,
+                difficultyLevel: 'normal'
+            },
+            stats: {
+                totalSpiceHarvested: 0,
+                totalSolariEarned: 0,
+                enemiesDefeated: 0,
+                areasExplored: 0,
+                questsCompleted: 0
+            },
+            lastUpdated: null,
+            gameInitialized: false,
+            currentTab: 'game'
+        };
+
+        // Enemy types for random encounters
+        const enemyTypes = [
+            { id: 'harkonnen_scout', name: 'Harkonnen Scout', health: 30, attack: 8, defense: 3, loot: { solari: [10, 25], chance: { spice: 0.5, water: 0.3 } } },
+            { id: 'desert_bandit', name: 'Desert Bandit', health: 25, attack: 10, defense: 2, loot: { solari: [15, 30], chance: { plasteel: 0.4, water: 0.5 } } },
+            { id: 'small_sandworm', name: 'Small Sandworm', health: 50, attack: 15, defense: 8, loot: { spice: [20, 40], chance: { 'sandworm_tooth': 0.3 } } }
+        ];
+
+        // Equipment items that can be found or crafted
+        const equipmentItems = [
+            { id: 'basic_knife', name: 'Basic Knife', type: 'weapon', stats: { attack: 5 }, description: 'A simple blade for protection.' },
+            { id: 'stillsuit', name: 'Stillsuit', type: 'armor', stats: { defense: 8, waterEfficiency: 0.2 }, description: 'Recycles body moisture, reducing water consumption.' },
+            { id: 'fremen_cloak', name: 'Fremen Cloak', type: 'accessory', stats: { defense: 3, heatResistance: 0.15 }, description: 'Protection from the harsh desert sun.' },
+            { id: 'crysknife', name: 'Crysknife', type: 'weapon', stats: { attack: 15 }, description: 'Sacred Fremen weapon made from a sandworm tooth.' }
+        ];
+
+        // Game Logic Functions
+        function saveGame() {
+            if (gameData.gameInitialized) {
+                localStorage.setItem("arrakisTycoonData", JSON.stringify(gameData));
+                addLog("Game Saved.", "info");
+            }
+        }
+
+        function loadGame() {
+            const localSave = localStorage.getItem("arrakisTycoonData");
+            if (localSave) {
+                Object.assign(gameData, JSON.parse(localSave));
+                addLog("Game Loaded from Local Storage.", "info");
+                if (!gameData.gameInitialized) {
+                    showCharacterCreator();
+                } else {
+                    startGameLoop();
+                    updateUI();
+                    generateMapView();
+                }
+            } else {
+                addLog("No local save found. Starting new game.", "info");
+                showCharacterCreator();
+            }
+        }
+
+        function showCharacterCreator() {
+            document.getElementById('characterCreatorScreen').classList.remove('hidden');
+            document.getElementById('mainGameScreen').classList.add('hidden');
+        }
+
+        function finalizeCharacterCreation() {
+            const house = document.querySelector('input[name="house"]:checked');
+            const background = document.querySelector('input[name="background"]:checked');
+            const charName = document.getElementById('characterNameInput').value;
+
+            if (!house || !background) {
+                addLog("Please select a House and Background.", "error");
+                return;
+            }
+            if (!charName.trim()) {
+                 addLog("Please enter a character name.", "error");
+                 return;
+            }
+
+            gameData.character.house = house.value;
+            gameData.character.background = background.value;
+            gameData.character.name = charName.trim();
+
+            // Apply house and background bonuses
+            if (gameData.character.house === 'Fremen') {
+                gameData.resources.water += 20;
+                gameData.character.defense += 2;
+            } else if (gameData.character.house === 'Harkonnen') {
+                gameData.resources.solari += 100;
+                gameData.character.attack += 2;
+            } else if (gameData.character.house === 'Atreides') {
+                gameData.character.maxHealth += 20;
+                gameData.character.health = gameData.character.maxHealth;
+            } else if (gameData.character.house === 'Corrino') {
+                gameData.resources.plasteel += 10;
+                gameData.resources.solari += 50;
+            }
+            
+            if (gameData.character.background === 'Merchant') {
+                gameData.resources.solari += 150;
+            } else if (gameData.character.background === 'Technician') {
+                gameData.resources.plasteel += 5;
+                // Add a basic weapon to inventory
+                gameData.inventory.push({
+                    id: 'basic_knife',
+                    name: 'Basic Knife',
+                    type: 'weapon',
+                    stats: { attack: 5 },
+                    quantity: 1
+                });
+            } else if (gameData.character.background === 'Scout') {
+                gameData.resources.water += 10;
+                gameData.map.visibleRadius += 1;
+            } else if (gameData.character.background === 'Warrior') {
+                gameData.character.attack += 5;
+                gameData.character.defense += 3;
+            }
+
+            // Initialize map exploration
+            initializeMap();
+
+            gameData.gameInitialized = true;
+            document.getElementById('characterCreatorScreen').classList.add('hidden');
+            document.getElementById('mainGameScreen').classList.remove('hidden');
+            switchTab('game');
+            addLog(`Welcome, ${gameData.character.name} of House ${gameData.character.house}! Your journey on Arrakis begins.`, "event");
+            
+            // Show tutorial message
+            showNarrative("You have arrived on Arrakis, the desert planet. The harsh environment will test your survival skills. Gather resources, build your base, and explore the vast dunes. Be wary of enemies and the great sandworms that roam the deep desert.");
+            
+            startGameLoop();
+            updateUI();
+            generateMapView();
+            saveGame(); 
+        }
+        window.finalizeCharacterCreation = finalizeCharacterCreation;
+
+        function initializeMap() {
+            // Mark starting position as explored
+            const pos = gameData.character.position;
+            markAreaAsExplored(pos.x, pos.y);
+            
+            // Explore visible radius around starting position
+            for (let x = pos.x - gameData.map.visibleRadius; x <= pos.x + gameData.map.visibleRadius; x++) {
+                for (let y = pos.y - gameData.map.visibleRadius; y <= pos.y + gameData.map.visibleRadius; y++) {
+                    if (x >= 0 && x < gameData.map.width && y >= 0 && y < gameData.map.height) {
+                        markAreaAsExplored(x, y);
+                    }
+                }
+            }
+            
+            // Generate some random enemies on the map
+            generateRandomEnemies(3);
+        }
+
+        function markAreaAsExplored(x, y) {
+            const key = `${x},${y}`;
+            if (!gameData.map.explored[key]) {
+                gameData.map.explored[key] = true;
+                gameData.stats.areasExplored++;
+                
+                // Check for quest updates
+                updateQuestProgress('explore', 1);
+            }
+        }
+
+        function generateRandomEnemies(count) {
+            gameData.map.enemies = [];
+            for (let i = 0; i < count; i++) {
+                const enemyType = enemyTypes[Math.floor(Math.random() * enemyTypes.length)];
+                const x = Math.floor(Math.random() * gameData.map.width);
+                const y = Math.floor(Math.random() * gameData.map.height);
+                
+                // Don't place enemies at player's starting position
+                if (x === gameData.character.position.x && y === gameData.character.position.y) {
+                    i--; // Try again
+                    continue;
+                }
+                
+                gameData.map.enemies.push({
+                    ...enemyType,
+                    position: { x, y },
+                    currentHealth: enemyType.health
+                });
+            }
+        }
+
+        function gameTick() {
+            if (!gameData.gameInitialized) return;
+
+            // Resource production from harvesters
+            const autoSpicePerTick = gameData.harvesters.spice_harvester_auto_count * (1 + gameData.harvesters.spice_harvester_auto_level * 0.5);
+            gameData.resources.spice += autoSpicePerTick;
+            gameData.stats.totalSpiceHarvested += autoSpicePerTick;
+
+            const autoWaterPerTick = gameData.harvesters.water_collector_auto_count * (1 + gameData.harvesters.water_collector_auto_level * 0.2);
+            gameData.resources.water += autoWaterPerTick;
+            
+            // Resource production from buildings
+            gameData.buildings.forEach(building => {
+                if (building.level > 0 && building.production) {
+                    for (const resource in building.production) {
+                        gameData.resources[resource] += building.production[resource] * building.level;
+                    }
+                }
+            });
+            
+            // Unit upkeep costs
+            gameData.units.forEach(unit => {
+                if (unit.count > 0 && unit.upkeep) {
+                    for (const resource in unit.upkeep) {
+                        gameData.resources[resource] -= unit.upkeep[resource] * unit.count;
+                        // Prevent negative resources
+                        if (gameData.resources[resource] < 0) gameData.resources[resource] = 0;
+                    }
+                }
+            });
+            
+            // Combat turn timer
+            if (gameData.combat.inCombat) {
+                if (gameData.combat.turnTimer > 0) {
+                    gameData.combat.turnTimer -= 1;
+                    updateCombatUI();
+                } else if (gameData.combat.playerTurn) {
+                    // Auto-attack if timer runs out on player turn
+                    performCombatAction('attack');
+                }
+            }
+            
+            // Random events
+            if (Math.random() < 0.01) { 
+                const events = [
+                    { msg: "A small tremor reveals a pocket of Spice!", spice: 10 + (5 * gameData.harvesters.spice_harvester_auto_level), type: "event" },
+                    { msg: "A minor sandstorm kicks up. Visibility low.", type: "lore" },
+                    { msg: "You find a discarded water flask!", water: 5, type: "event" },
+                    { msg: "Shai-Hulud stirs in the deep desert...", type: "lore" },
+                    { msg: "A Fremen trading party passes by your settlement.", type: "lore" }
+                ];
+                const randomEvent = events[Math.floor(Math.random() * events.length)];
+                addLog(randomEvent.msg, randomEvent.type);
+                if(randomEvent.spice) gameData.resources.spice += randomEvent.spice;
+                if(randomEvent.water) gameData.resources.water += randomEvent.water;
+            }
+
+            // Passive solari generation from spice
+            if (gameData.resources.spice >= 10) {
+                const solariGain = Math.floor(gameData.resources.spice / 10);
+                gameData.resources.solari += solariGain;
+                gameData.resources.spice -= solariGain * 10;
+                gameData.stats.totalSolariEarned += solariGain;
+            }
+
+            updateUI();
+        }
+
+        let gameLoopInterval = null;
+        function startGameLoop() {
+            if (gameLoopInterval) clearInterval(gameLoopInterval);
+            gameLoopInterval = setInterval(gameTick, gameData.settings.gameSpeed);
+            setInterval(saveGame, 30000); 
+        }
+
+        function manualHarvestSpice() {
+            if (!gameData.gameInitialized) return;
+            const amount = 1 * gameData.harvesters.spice_harvester_manual_level;
+            gameData.resources.spice += amount;
+            gameData.stats.totalSpiceHarvested += amount;
+            addLog(`Manually harvested ${amount} Spice.`, "action");
+            
+            // Check for quest updates
+            updateQuestProgress('spice', amount);
+            
+            updateUI();
+        }
+        window.manualHarvestSpice = manualHarvestSpice;
+
+        function buyAutoHarvester(type) {
+            if (type === 'spice') {
+                if (gameData.resources.solari >= gameData.upgrades.spice_auto_cost) {
+                    gameData.resources.solari -= gameData.upgrades.spice_auto_cost;
+                    gameData.harvesters.spice_harvester_auto_count++;
+                    gameData.upgrades.spice_auto_cost = Math.ceil(gameData.upgrades.spice_auto_cost * 1.15);
+                    addLog("Purchased Spice Auto-Harvester.", "success");
+                } else { addLog("Not enough Solari for Spice Auto-Harvester.", "error"); }
+            } else if (type === 'water') {
+                 if (gameData.resources.solari >= gameData.upgrades.water_auto_cost) {
+                    gameData.resources.solari -= gameData.upgrades.water_auto_cost;
+                    gameData.harvesters.water_collector_auto_count++;
+                    gameData.upgrades.water_auto_cost = Math.ceil(gameData.upgrades.water_auto_cost * 1.20);
+                    addLog("Purchased Water Auto-Collector.", "success");
+                } else { addLog("Not enough Solari for Water Auto-Collector.", "error"); }
+            }
+            updateUI();
+            saveGame();
+        }
+        window.buyAutoHarvester = buyAutoHarvester;
+        
+        function upgradeManualSpiceHarvester() {
+            if (gameData.resources.solari >= gameData.upgrades.spice_manual_upgrade_cost) {
+                gameData.resources.solari -= gameData.upgrades.spice_manual_upgrade_cost;
+                gameData.harvesters.spice_harvester_manual_level++;
+                gameData.upgrades.spice_manual_upgrade_cost = Math.ceil(gameData.upgrades.spice_manual_upgrade_cost * 1.5);
+                 addLog("Manual Spice Harvesting upgraded!", "success");
+            } else {
+                 addLog("Not enough Solari to upgrade manual Spice harvesting.", "error");
+            }
+            updateUI();
+            saveGame();
+        }
+        window.upgradeManualSpiceHarvester = upgradeManualSpiceHarvester;
+
+        function upgradeAutoHarvester(type) {
+            let cost = 0;
+            if (type === 'spice') {
+                cost = 50 * Math.pow(1.5, gameData.harvesters.spice_harvester_auto_level);
+                if (gameData.harvesters.spice_harvester_auto_count > 0 && gameData.resources.solari >= cost) {
+                    gameData.resources.solari -= cost;
+                    gameData.harvesters.spice_harvester_auto_level++;
+                    addLog("Spice Auto-Harvester efficiency upgraded!", "success");
+                } else if (gameData.harvesters.spice_harvester_auto_count === 0) {
+                    addLog("Buy a Spice Auto-Harvester first!", "warn");
+                } else {
+                    addLog("Not enough Solari for Spice Auto-Harvester upgrade.", "error");
+                }
+            } else if (type === 'water') {
+                cost = 75 * Math.pow(1.6, gameData.harvesters.water_collector_auto_level);
+                 if (gameData.harvesters.water_collector_auto_count > 0 && gameData.resources.solari >= cost) {
+                    gameData.resources.solari -= cost;
+                    gameData.harvesters.water_collector_auto_level++;
+                    addLog("Water Auto-Collector efficiency upgraded!", "success");
+                } else if (gameData.harvesters.water_collector_auto_count === 0) {
+                    addLog("Buy a Water Auto-Collector first!", "warn");
+                } else {
+                    addLog("Not enough Solari for Water Auto-Collector upgrade.", "error");
+                }
+            }
+            updateUI();
+            saveGame();
+        }
+        window.upgradeAutoHarvester = upgradeAutoHarvester;
+
+        function craftItem(recipeId) {
+            const recipe = gameData.craftingRecipes.find(r => r.id === recipeId);
+            if (!recipe) {
+                addLog("Invalid recipe.", "error");
+                return;
+            }
+
+            for (const resource in recipe.cost) {
+                if (gameData.resources[resource] < recipe.cost[resource]) {
+                    addLog(`Not enough ${resource.charAt(0).toUpperCase() + resource.slice(1)} to craft ${recipe.name}.`, "error");
+                    return;
+                }
+            }
+
+            for (const resource in recipe.cost) {
+                gameData.resources[resource] -= recipe.cost[resource];
+            }
+
+            const existingItem = gameData.inventory.find(item => item.id === recipe.output.id);
+            if (existingItem) {
+                existingItem.quantity += recipe.output.quantity;
+            } else {
+                gameData.inventory.push({ ...recipe.output });
+            }
+            addLog(`Crafted ${recipe.output.quantity}x ${recipe.name}.`, "success");
+            
+            // Check for quest updates
+            updateQuestProgress('craft', 1, recipe.id);
+            
+            updateUI();
+            saveGame();
+        }
+        window.craftItem = craftItem;
+
+        function useItem(itemId) {
+            const itemIndex = gameData.inventory.findIndex(item => item.id === itemId);
+            if (itemIndex === -1 || gameData.inventory[itemIndex].quantity <= 0) {
+                addLog("No such item in inventory.", "error");
+                return;
+            }
+            
+            const item = gameData.inventory[itemIndex];
+            let itemUsed = false;
+
+            if (item.type === 'consumable') {
+                if (item.effect) {
+                    if (item.effect.health && gameData.character.health < gameData.character.maxHealth) {
+                        gameData.character.health = Math.min(gameData.character.maxHealth, gameData.character.health + item.effect.health);
+                        addLog(`Used ${item.name}. Restored ${item.effect.health} health.`, "action");
+                        itemUsed = true;
+                    } else if (item.effect.food) {
+                        gameData.resources.food += item.effect.food;
+                        addLog(`Used ${item.name}. Added ${item.effect.food} food.`, "action");
+                        itemUsed = true;
+                    } else {
+                        addLog("Cannot use this item right now.", "info");
+                    }
+                }
+            } else if (item.type === 'weapon' || item.type === 'armor' || item.type === 'accessory') {
+                equipItem(item.id);
+                return; // Equipping doesn't consume the item
+            }
+
+            if (itemUsed) {
+                item.quantity--;
+                if (item.quantity <= 0) {
+                    gameData.inventory.splice(itemIndex, 1);
+                }
+            }
+            updateUI();
+            saveGame();
+        }
+        window.useItem = useItem;
+
+        function equipItem(itemId) {
+            const item = gameData.inventory.find(i => i.id === itemId);
+            if (!item) {
+                addLog("Item not found in inventory.", "error");
+                return;
+            }
+            
+            // Unequip current item of same type if any
+            const currentEquipped = gameData.character.equipment[item.type];
+            if (currentEquipped) {
+                // Add current equipped item back to inventory
+                const existingItem = gameData.inventory.find(i => i.id === currentEquipped.id);
+                if (existingItem) {
+                    existingItem.quantity++;
+                } else {
+                    gameData.inventory.push({...currentEquipped, quantity: 1});
+                }
+            }
+            
+            // Equip new item
+            gameData.character.equipment[item.type] = {
+                id: item.id,
+                name: item.name,
+                type: item.type,
+                stats: item.stats
+            };
+            
+            // Remove from inventory
+            const itemIndex = gameData.inventory.findIndex(i => i.id === itemId);
+            gameData.inventory[itemIndex].quantity--;
+            if (gameData.inventory[itemIndex].quantity <= 0) {
+                gameData.inventory.splice(itemIndex, 1);
+            }
+            
+            // Update character stats
+            updateCharacterStats();
+            
+            addLog(`Equipped ${item.name}.`, "action");
+            updateUI();
+            saveGame();
+        }
+        window.equipItem = equipItem;
+
+        function updateCharacterStats() {
+            // Reset to base stats
+            gameData.character.attack = 10;
+            gameData.character.defense = 5;
+            
+            // Apply house and background bonuses
+            if (gameData.character.house === 'Fremen') {
+                gameData.character.defense += 2;
+            } else if (gameData.character.house === 'Harkonnen') {
+                gameData.character.attack += 2;
+            }
+            
+            if (gameData.character.background === 'Warrior') {
+                gameData.character.attack += 5;
+                gameData.character.defense += 3;
+            }
+            
+            // Apply equipment bonuses
+            for (const slot in gameData.character.equipment) {
+                const item = gameData.character.equipment[slot];
+                if (item && item.stats) {
+                    if (item.stats.attack) gameData.character.attack += item.stats.attack;
+                    if (item.stats.defense) gameData.character.defense += item.stats.defense;
+                }
+            }
+        }
+
+        function buildStructure(buildingId) {
+            const building = gameData.buildings.find(b => b.id === buildingId);
+            if (!building) {
+                addLog("Invalid building.", "error");
+                return;
+            }
+            
+            if (building.level >= building.maxLevel) {
+                addLog(`${building.name} is already at maximum level.`, "info");
+                return;
+            }
+            
+            const cost = building.level === 0 ? building.cost : building.upgradeCost;
+            
+            for (const resource in cost) {
+                if (gameData.resources[resource] < cost[resource]) {
+                    addLog(`Not enough ${resource.charAt(0).toUpperCase() + resource.slice(1)} to build ${building.name}.`, "error");
+                    return;
+                }
+            }
+            
+            for (const resource in cost) {
+                gameData.resources[resource] -= cost[resource];
+            }
+            
+            building.level++;
+            
+            if (building.level === 1) {
+                addLog(`Built ${building.name}!`, "success");
+            } else {
+                addLog(`Upgraded ${building.name} to level ${building.level}!`, "success");
+            }
+            
+            updateUI();
+            saveGame();
+        }
+        window.buildStructure = buildStructure;
+
+        function trainUnit(unitId) {
+            const unit = gameData.units.find(u => u.id === unitId);
+            if (!unit) {
+                addLog("Invalid unit.", "error");
+                return;
+            }
+            
+            // Check if barracks exists and has capacity
+            const barracks = gameData.buildings.find(b => b.id === 'barracks');
+            const totalUnits = gameData.units.reduce((sum, u) => sum + u.count, 0);
+            const maxUnits = barracks ? barracks.level * barracks.unitCapacity : 0;
+            
+            if (barracks.level === 0) {
+                addLog("You need to build a Barracks first.", "error");
+                return;
+            }
+            
+            if (totalUnits >= maxUnits) {
+                addLog("Not enough capacity in Barracks. Upgrade or build more.", "error");
+                return;
+            }
+            
+            for (const resource in unit.cost) {
+                if (gameData.resources[resource] < unit.cost[resource]) {
+                    addLog(`Not enough ${resource.charAt(0).toUpperCase() + resource.slice(1)} to train ${unit.name}.`, "error");
+                    return;
+                }
+            }
+            
+            for (const resource in unit.cost) {
+                gameData.resources[resource] -= unit.cost[resource];
+            }
+            
+            unit.count++;
+            
+            addLog(`Trained 1 ${unit.name}.`, "success");
+            updateUI();
+            saveGame();
+        }
+        window.trainUnit = trainUnit;
+
+        function moveCharacter(direction) {
+            if (gameData.combat.inCombat) {
+                addLog("Cannot move while in combat!", "error");
+                return;
+            }
+            
+            const pos = gameData.character.position;
+            let newX = pos.x;
+            let newY = pos.y;
+            
+            switch(direction) {
+                case 'north': newY = Math.max(0, pos.y - 1); break;
+                case 'south': newY = Math.min(gameData.map.height - 1, pos.y + 1); break;
+                case 'west': newX = Math.max(0, pos.x - 1); break;
+                case 'east': newX = Math.min(gameData.map.width - 1, pos.x + 1); break;
+            }
+            
+            // Calculate distance moved
+            const distance = Math.abs(newX - pos.x) + Math.abs(newY - pos.y);
+            
+            // Check if player has enough water to move
+            const waterCost = distance * 2;
+            if (gameData.resources.water < waterCost) {
+                addLog("Not enough water to travel!", "error");
+                return;
+            }
+            
+            // Deduct water cost
+            gameData.resources.water -= waterCost;
+            
+            // Update position
+            gameData.character.position = { x: newX, y: newY };
+            addLog(`Moved ${direction}. Used ${waterCost} water.`, "action");
+            
+            // Explore new area
+            exploreArea(newX, newY);
+            
+            // Check for encounters
+            checkForEncounters();
+            
+            updateUI();
+            generateMapView();
+            saveGame();
+        }
+        window.moveCharacter = moveCharacter;
+
+        function exploreArea(x, y) {
+            // Mark current position as explored
+            markAreaAsExplored(x, y);
+            
+            // Explore visible radius around current position
+            for (let i = x - gameData.map.visibleRadius; i <= x + gameData.map.visibleRadius; i++) {
+                for (let j = y - gameData.map.visibleRadius; j <= y + gameData.map.visibleRadius; j++) {
+                    if (i >= 0 && i < gameData.map.width && j >= 0 && j < gameData.map.height) {
+                        markAreaAsExplored(i, j);
+                    }
+                }
+            }
+        }
+
+        function checkForEncounters() {
+            const pos = gameData.character.position;
+            
+            // Check for location encounters
+            const location = gameData.map.locations.find(loc => loc.x === pos.x && loc.y === pos.y);
+            if (location) {
+                addLog(`You've discovered ${location.name}: ${location.description}`, "event");
+                
+                if (location.resource) {
+                    const amount = Math.floor(Math.random() * 10) + 10;
+                    gameData.resources[location.resource] += amount;
+                    addLog(`You found ${amount} ${location.resource}!`, "success");
+                }
+                
+                if (location.loot) {
+                    const lootTable = [
+                        { chance: 0.5, item: { id: 'plasteel_scrap', name: 'Plasteel Scrap', type: 'material', quantity: Math.floor(Math.random() * 5) + 1 } },
+                        { chance: 0.3, item: { id: 'water_container', name: 'Water Container', type: 'consumable', effect: { water: 15 }, quantity: 1 } },
+                        { chance: 0.2, item: { id: 'desert_boots', name: 'Desert Boots', type: 'accessory', stats: { defense: 3 }, quantity: 1 } }
+                    ];
+                    
+                    const roll = Math.random();
+                    let cumulativeChance = 0;
+                    
+                    for (const loot of lootTable) {
+                        cumulativeChance += loot.chance;
+                        if (roll <= cumulativeChance) {
+                            const existingItem = gameData.inventory.find(item => item.id === loot.item.id);
+                            if (existingItem) {
+                                existingItem.quantity += loot.item.quantity;
+                            } else {
+                                gameData.inventory.push({ ...loot.item });
+                            }
+                            addLog(`You found ${loot.item.quantity}x ${loot.item.name}!`, "success");
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            // Check for enemy encounters
+            const enemy = gameData.map.enemies.find(e => e.position.x === pos.x && e.position.y === pos.y);
+            if (enemy) {
+                addLog(`You encountered a ${enemy.name}!`, "combat");
+                initiateCombat(enemy);
+            }
+        }
+
+        function initiateCombat(enemy) {
+            gameData.combat.inCombat = true;
+            gameData.combat.enemy = { ...enemy };
+            gameData.combat.playerTurn = true;
+            gameData.combat.turnTimer = gameData.combat.maxTurnTime;
+            gameData.combat.messages = [];
+            
+            addCombatMessage(`Combat with ${enemy.name} initiated!`);
+            
+            document.getElementById('combatScreen').classList.remove('hidden');
+            updateCombatUI();
+        }
+
+        function addCombatMessage(message) {
+            gameData.combat.messages.unshift(message);
+            if (gameData.combat.messages.length > 5) {
+                gameData.combat.messages.pop();
+            }
+        }
+
+        function performCombatAction(action) {
+            if (!gameData.combat.inCombat) return;
+            
+            if (action === 'attack') {
+                if (gameData.combat.playerTurn) {
+                    // Player attacks enemy
+                    const damage = Math.max(1, gameData.character.attack - gameData.combat.enemy.defense);
+                    gameData.combat.enemy.currentHealth -= damage;
+                    addCombatMessage(`You attack for ${damage} damage!`);
+                    
+                    if (gameData.combat.enemy.currentHealth <= 0) {
+                        endCombat(true);
+                        return;
+                    }
+                    
+                    // Switch to enemy turn
+                    gameData.combat.playerTurn = false;
+                    gameData.combat.turnTimer = gameData.combat.maxTurnTime;
+                    
+                    // Enemy attacks after a short delay
+                    setTimeout(() => {
+                        if (gameData.combat.inCombat) {
+                            const enemyDamage = Math.max(1, gameData.combat.enemy.attack - gameData.character.defense);
+                            gameData.character.health -= enemyDamage;
+                            addCombatMessage(`${gameData.combat.enemy.name} attacks for ${enemyDamage} damage!`);
+                            
+                            if (gameData.character.health <= 0) {
+                                endCombat(false);
+                                return;
+                            }
+                            
+                            // Switch back to player turn
+                            gameData.combat.playerTurn = true;
+                            gameData.combat.turnTimer = gameData.combat.maxTurnTime;
+                            updateCombatUI();
+                        }
+                    }, 1000);
+                }
+            } else if (action === 'flee') {
+                // 50% chance to flee
+                if (Math.random() > 0.5) {
+                    addCombatMessage("You successfully fled from combat!");
+                    endCombat(false, true);
+                } else {
+                    addCombatMessage("Failed to flee! Enemy gets a free attack!");
+                    
+                    // Enemy gets a free attack
+                    const enemyDamage = Math.max(1, gameData.combat.enemy.attack - gameData.character.defense);
+                    gameData.character.health -= enemyDamage;
+                    addCombatMessage(`${gameData.combat.enemy.name} attacks for ${enemyDamage} damage!`);
+                    
+                    if (gameData.character.health <= 0) {
+                        endCombat(false);
+                        return;
+                    }
+                }
+            }
+            
+            updateCombatUI();
+        }
+        window.performCombatAction = performCombatAction;
+
+        function endCombat(victory, fled = false) {
+            if (victory) {
+                addLog(`You defeated the ${gameData.combat.enemy.name}!`, "success");
+                
+                // Remove enemy from map
+                const enemyIndex = gameData.map.enemies.findIndex(e => 
+                    e.position.x === gameData.combat.enemy.position.x && 
+                    e.position.y === gameData.combat.enemy.position.y
+                );
+                if (enemyIndex !== -1) {
+                    gameData.map.enemies.splice(enemyIndex, 1);
+                }
+                
+                // Generate loot
+                const enemy = gameData.combat.enemy;
+                if (enemy.loot) {
+                    // Guaranteed solari
+                    if (enemy.loot.solari) {
+                        const solariAmount = Math.floor(Math.random() * (enemy.loot.solari[1] - enemy.loot.solari[0] + 1)) + enemy.loot.solari[0];
+                        gameData.resources.solari += solariAmount;
+                        addLog(`Looted ${solariAmount} Solari.`, "success");
+                    }
+                    
+                    // Chance-based resources
+                    if (enemy.loot.chance) {
+                        for (const [resource, chance] of Object.entries(enemy.loot.chance)) {
+                            if (Math.random() < chance) {
+                                if (resource === 'sandworm_tooth') {
+                                    // Special item
+                                    const existingItem = gameData.inventory.find(item => item.id === 'sandworm_tooth');
+                                    if (existingItem) {
+                                        existingItem.quantity++;
+                                    } else {
+                                        gameData.inventory.push({
+                                            id: 'sandworm_tooth',
+                                            name: 'Sandworm Tooth',
+                                            type: 'material',
+                                            quantity: 1,
+                                            description: 'A rare tooth from a sandworm. Used in crafting powerful weapons.'
+                                        });
+                                    }
+                                    addLog(`Found a rare Sandworm Tooth!`, "success");
+                                } else {
+                                    // Regular resource
+                                    const amount = Math.floor(Math.random() * 10) + 5;
+                                    gameData.resources[resource] += amount;
+                                    addLog(`Looted ${amount} ${resource}.`, "success");
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Update quest progress
+                updateQuestProgress('combat', 1);
+                
+                // Increment stats
+                gameData.stats.enemiesDefeated++;
+                
+                // Add experience
+                const expGain = enemy.health / 2;
+                gameData.character.experience += expGain;
+                addLog(`Gained ${expGain} experience.`, "success");
+                
+                // Check for level up
+                checkLevelUp();
+                
+                // Generate new enemy
+                if (Math.random() < 0.7) {
+                    generateRandomEnemies(1);
+                }
+            } else if (fled) {
+                addLog(`You fled from the ${gameData.combat.enemy.name}.`, "action");
+            } else {
+                addLog(`You were defeated by the ${gameData.combat.enemy.name}!`, "error");
+                
+                // Penalty for defeat
+                gameData.character.health = Math.max(1, gameData.character.health);
+                gameData.resources.solari = Math.floor(gameData.resources.solari * 0.8);
+                
+                // Move player to a safe location
+                gameData.character.position = { x: 5, y: 5 };
+                addLog("You wake up back at your base camp...", "event");
+            }
+            
+            // End combat
+            gameData.combat.inCombat = false;
+            gameData.combat.enemy = null;
+            document.getElementById('combatScreen').classList.add('hidden');
+            
+            updateUI();
+            generateMapView();
+            saveGame();
+        }
+
+        function checkLevelUp() {
+            if (gameData.character.experience >= gameData.character.experienceToNextLevel) {
+                gameData.character.level++;
+                gameData.character.experience -= gameData.character.experienceToNextLevel;
+                gameData.character.experienceToNextLevel = Math.floor(gameData.character.experienceToNextLevel * 1.5);
+                
+                // Increase stats
+                gameData.character.maxHealth += 10;
+                gameData.character.health = gameData.character.maxHealth;
+                gameData.character.attack += 2;
+                gameData.character.defense += 1;
+                
+                addLog(`Level up! You are now level ${gameData.character.level}.`, "success");
+                
+                // Check for new quests
+                activateNewQuests();
+            }
+        }
+
+        function updateQuestProgress(target, amount, itemId = null) {
+            let questUpdated = false;
+            
+            gameData.quests.forEach(quest => {
+                if (!quest.active || quest.completed) return;
+                
+                quest.objectives.forEach(objective => {
+                    if (objective.completed) return;
+                    
+                    if (objective.target === target) {
+                        if (target === 'craft' && itemId && objective.itemId !== itemId) return;
+                        
+                        if (objective.progress !== undefined) {
+                            objective.progress += amount;
+                            if (objective.progress >= objective.amount) {
+                                objective.completed = true;
+                            }
+                        } else if (target === 'spice' && objective.target === 'spice') {
+                            if (gameData.resources.spice >= objective.amount) {
+                                objective.completed = true;
+                            }
+                        } else {
+                            objective.completed = true;
+                        }
+                        
+                        questUpdated = true;
+                    }
+                });
+                
+                // Check if all objectives are completed
+                if (quest.objectives.every(o => o.completed) && !quest.completed) {
+                    quest.completed = true;
+                    
+                    // Apply rewards
+                    if (quest.rewards) {
+                        if (quest.rewards.solari) {
+                            gameData.resources.solari += quest.rewards.solari;
+                        }
+                        if (quest.rewards.experience) {
+                            gameData.character.experience += quest.rewards.experience;
+                            checkLevelUp();
+                        }
+                        if (quest.rewards.item) {
+                            const existingItem = gameData.inventory.find(item => item.id === quest.rewards.item.id);
+                            if (existingItem) {
+                                existingItem.quantity++;
+                            } else {
+                                gameData.inventory.push({...quest.rewards.item, quantity: 1});
+                            }
+                        }
+                    }
+                    
+                    addLog(`Quest completed: ${quest.title}`, "success");
+                    gameData.stats.questsCompleted++;
+                    
+                    // Activate new quests
+                    activateNewQuests();
+                }
+            });
+            
+            if (questUpdated) {
+                updateUI();
+            }
+        }
+
+        function activateNewQuests() {
+            gameData.quests.forEach(quest => {
+                if (!quest.active && !quest.completed) {
+                    // Simple condition: activate next quest when previous is completed
+                    const previousQuestId = `q${parseInt(quest.id.substring(1)) - 1}`;
+                    const previousQuest = gameData.quests.find(q => q.id === previousQuestId);
+                    
+                    if (previousQuest && previousQuest.completed) {
+                        quest.active = true;
+                        addLog(`New quest available: ${quest.title}`, "event");
+                    }
+                }
+            });
+        }
+
+        function showNarrative(text) {
+            const narrativeScreen = document.getElementById('narrativeScreen');
+            const narrativeText = document.getElementById('narrativeText');
+            
+            narrativeText.textContent = text;
+            narrativeScreen.classList.remove('hidden');
+        }
+        window.showNarrative = showNarrative;
+
+        function closeNarrative() {
+            document.getElementById('narrativeScreen').classList.add('hidden');
+        }
+        window.closeNarrative = closeNarrative;
+
+        function addLog(message, type = "info") { 
+            const logScreen = document.getElementById('logScreen');
+            if (!logScreen) return; 
+            const newLog = document.createElement('p');
+            const time = new Date().toLocaleTimeString();
+            let typeColor = "text-stone-400"; 
+            if (type === "success") typeColor = "text-green-400";
+            else if (type === "error") typeColor = "text-red-400";
+            else if (type === "warn") typeColor = "text-yellow-400";
+            else if (type === "event") typeColor = "text-purple-400";
+            else if (type === "lore") typeColor = "text-sky-400";
+            else if (type === "action") typeColor = "text-amber-400";
+            else if (type === "combat") typeColor = "text-rose-400";
+            
+            newLog.className = `text-sm ${typeColor} mb-1`;
+            newLog.innerHTML = `<span class="text-xs text-stone-500">[${time}]</span> ${message}`;
+            logScreen.appendChild(newLog);
+            logScreen.scrollTop = logScreen.scrollHeight; 
+            if (logScreen.children.length > 100) { 
+                logScreen.removeChild(logScreen.firstChild);
+            }
+        }
+
+        function generateMapView() {
+            const mapContainer = document.getElementById('mapContainer');
+            if (!mapContainer) return;
+            
+            mapContainer.innerHTML = '';
+            
+            const mapWidth = gameData.map.width;
+            const mapHeight = gameData.map.height;
+            const playerPos = gameData.character.position;
+            
+            // Create grid
+            const grid = document.createElement('div');
+            grid.className = 'grid grid-cols-10 gap-1';
+            
+            for (let y = 0; y < mapHeight; y++) {
+                for (let x = 0; x < mapWidth; x++) {
+                    const cell = document.createElement('div');
+                    const key = `${x},${y}`;
+                    const isExplored = gameData.map.explored[key];
+                    const isPlayerPosition = x === playerPos.x && y === playerPos.y;
+                    
+                    cell.className = 'w-8 h-8 flex items-center justify-center text-xs font-bold rounded';
+                    
+                    if (isPlayerPosition) {
+                        cell.className += ' bg-amber-600 text-white';
+                        cell.innerHTML = '👤';
+                    } else if (isExplored) {
+                        // Check if there's a location here
+                        const location = gameData.map.locations.find(loc => loc.x === x && loc.y === y);
+                        if (location) {
+                            switch(location.type) {
+                                case 'settlement':
+                                    cell.className += ' bg-green-700 text-white';
+                                    cell.innerHTML = '🏠';
+                                    break;
+                                case 'ruins':
+                                    cell.className += ' bg-stone-600 text-white';
+                                    cell.innerHTML = '🏛️';
+                                    break;
+                                case 'oasis':
+                                    cell.className += ' bg-sky-700 text-white';
+                                    cell.innerHTML = '💧';
+                                    break;
+                                default:
+                                    cell.className += ' bg-amber-800 text-amber-200';
+                            }
+                        } else {
+                            // Check if there's an enemy here
+                            const enemy = gameData.map.enemies.find(e => e.position.x === x && e.position.y === y);
+                            if (enemy) {
+                                cell.className += ' bg-red-700 text-white';
+                                cell.innerHTML = '⚔️';
+                            } else {
+                                cell.className += ' bg-amber-800 text-amber-200';
+                            }
+                        }
+                    } else {
+                        cell.className += ' bg-stone-900 text-stone-700';
+                        cell.innerHTML = '?';
+                    }
+                    
+                    grid.appendChild(cell);
+                }
+            }
+            
+            mapContainer.appendChild(grid);
+        }
+
+        function updateCombatUI() {
+            if (!gameData.combat.inCombat) return;
+            
+            const enemy = gameData.combat.enemy;
+            
+            document.getElementById('combatEnemyName').textContent = enemy.name;
+            document.getElementById('combatEnemyHealth').textContent = `${enemy.currentHealth} / ${enemy.health}`;
+            
+            const enemyHealthPercent = (enemy.currentHealth / enemy.health) * 100;
+            document.getElementById('combatEnemyHealthBar').style.width = `${enemyHealthPercent}%`;
+            
+            document.getElementById('combatPlayerHealth').textContent = `${Math.floor(gameData.character.health)} / ${gameData.character.maxHealth}`;
+            const playerHealthPercent = (gameData.character.health / gameData.character.maxHealth) * 100;
+            document.getElementById('combatPlayerHealthBar').style.width = `${playerHealthPercent}%`;
+            
+            document.getElementById('combatTurnIndicator').textContent = gameData.combat.playerTurn ? "Your Turn" : "Enemy Turn";
+            document.getElementById('combatTurnTimer').textContent = gameData.combat.turnTimer;
+            
+            const turnTimerPercent = (gameData.combat.turnTimer / gameData.combat.maxTurnTime) * 100;
+            document.getElementById('combatTurnTimerBar').style.width = `${turnTimerPercent}%`;
+            
+            // Update combat log
+            const combatLog = document.getElementById('combatLog');
+            combatLog.innerHTML = '';
+            gameData.combat.messages.forEach(message => {
+                const logEntry = document.createElement('p');
+                logEntry.className = 'text-sm text-stone-300';
+                logEntry.textContent = message;
+                combatLog.appendChild(logEntry);
+            });
+            
+            // Disable/enable buttons based on turn
+            document.getElementById('combatAttackBtn').disabled = !gameData.combat.playerTurn;
+            document.getElementById('combatFleeBtn').disabled = !gameData.combat.playerTurn;
+        }
+
+        function updateUI() {
+            if (!gameData.gameInitialized) return;
+
+            // Update resources
+            document.getElementById('spiceDisplay').textContent = Math.floor(gameData.resources.spice);
+            document.getElementById('waterDisplay').textContent = Math.floor(gameData.resources.water);
+            document.getElementById('solariDisplay').textContent = Math.floor(gameData.resources.solari);
+            document.getElementById('plasteelDisplay').textContent = Math.floor(gameData.resources.plasteel);
+            document.getElementById('foodDisplay').textContent = Math.floor(gameData.resources.food);
+
+            // Update character info
+            document.getElementById('characterNameDisplay').textContent = gameData.character.name;
+            document.getElementById('characterHouseDisplay').textContent = gameData.character.house || "N/A";
+            document.getElementById('characterBackgroundDisplay').textContent = gameData.character.background || "N/A";
+            document.getElementById('characterLevelDisplay').textContent = gameData.character.level;
+            document.getElementById('characterExpDisplay').textContent = `${gameData.character.experience} / ${gameData.character.experienceToNextLevel}`;
+            document.getElementById('characterAttackDisplay').textContent = gameData.character.attack;
+            document.getElementById('characterDefenseDisplay').textContent = gameData.character.defense;
+            
+            document.getElementById('healthDisplay').textContent = `${Math.floor(gameData.character.health)} / ${gameData.character.maxHealth}`;
+            const healthPercentage = (gameData.character.health / gameData.character.maxHealth) * 100;
+            document.getElementById('healthBarFill').style.width = `${healthPercentage}%`;
+
+            // Update harvester info
+            document.getElementById('manualSpiceLevel').textContent = gameData.harvesters.spice_harvester_manual_level;
+            document.getElementById('manualSpiceUpgradeCost').textContent = gameData.upgrades.spice_manual_upgrade_cost;
+
+            document.getElementById('autoSpiceCount').textContent = gameData.harvesters.spice_harvester_auto_count;
+            document.getElementById('autoSpiceLevel').textContent = gameData.harvesters.spice_harvester_auto_level;
+            document.getElementById('autoSpiceCost').textContent = gameData.upgrades.spice_auto_cost;
+            document.getElementById('autoSpiceUpgradeEffCost').textContent = (50 * Math.pow(1.5, gameData.harvesters.spice_harvester_auto_level)).toFixed(0);
+
+            document.getElementById('autoWaterCount').textContent = gameData.harvesters.water_collector_auto_count;
+            document.getElementById('autoWaterLevel').textContent = gameData.harvesters.water_collector_auto_level;
+            document.getElementById('autoWaterCost').textContent = gameData.upgrades.water_auto_cost;
+            document.getElementById('autoWaterUpgradeEffCost').textContent = (75 * Math.pow(1.6, gameData.harvesters.water_collector_auto_level)).toFixed(0);
+
+            // Update crafting recipes
+            const craftingList = document.getElementById('craftingRecipesList');
+            if (craftingList) {
+                craftingList.innerHTML = ''; 
+                gameData.craftingRecipes.forEach(recipe => {
+                    let costString = Object.entries(recipe.cost).map(([key, value]) => `${value} ${key.charAt(0).toUpperCase() + key.slice(1)}`).join(', ');
+                    const canCraft = Object.entries(recipe.cost).every(([key,value]) => gameData.resources[key] >= value);
+                    const buttonClass = canCraft ? 'bg-green-600 hover:bg-green-700' : 'bg-stone-500 cursor-not-allowed';
+
+                    craftingList.innerHTML += `
+                        <div class="bg-stone-700 p-3 rounded-md shadow">
+                            <h4 class="text-lg font-semibold text-amber-400">${recipe.name}</h4>
+                            <p class="text-xs text-stone-300 mb-1">Creates: ${recipe.output.quantity}x ${recipe.output.name}</p>
+                            <p class="text-xs text-stone-300 mb-1">Cost: ${costString}</p>
+                            <p class="text-xs text-stone-400 italic mb-2">${recipe.description || ''}</p>
+                            <button onclick="craftItem('${recipe.id}')" class="w-full text-white font-semibold py-2 px-3 rounded-md text-sm ${buttonClass} transition-colors" ${!canCraft ? 'disabled' : ''}>Craft</button>
+                        </div>
+                    `;
+                });
+            }
+            
+            // Update inventory
+            const inventoryList = document.getElementById('inventoryList');
+            if (inventoryList) {
+                inventoryList.innerHTML = '';
+                if (gameData.inventory.length === 0) {
+                    inventoryList.innerHTML = '<p class="text-stone-400">Your inventory is empty.</p>';
+                } else {
+                    gameData.inventory.forEach(item => {
+                        let buttonHtml = '';
+                        if (item.type === 'consumable') {
+                            buttonHtml = `<button onclick="useItem('${item.id}')" class="bg-sky-600 hover:bg-sky-700 text-white text-xs py-1 px-2 rounded-md">Use</button>`;
+                        } else if (item.type === 'weapon' || item.type === 'armor' || item.type === 'accessory') {
+                            buttonHtml = `<button onclick="equipItem('${item.id}')" class="bg-purple-600 hover:bg-purple-700 text-white text-xs py-1 px-2 rounded-md">Equip</button>`;
+                        }
+                        
+                        inventoryList.innerHTML += `
+                            <div class="bg-stone-700 p-3 rounded-md shadow flex justify-between items-center">
+                                <div>
+                                    <h4 class="text-md font-semibold text-amber-300">${item.name} (x${item.quantity})</h4>
+                                    <p class="text-xs text-stone-400">${item.type}</p>
+                                    ${item.stats ? `<p class="text-xs text-stone-300">${Object.entries(item.stats).map(([key, value]) => `${key}: ${value}`).join(', ')}</p>` : ''}
+                                </div>
+                                ${buttonHtml}
+                            </div>
+                        `;
+                    });
+                }
+            }
+
+            // Update buildings list
+            const buildingsList = document.getElementById('buildingsList');
+            if (buildingsList) {
+                buildingsList.innerHTML = '';
+                gameData.buildings.forEach(building => {
+                    const canBuild = building.level < building.maxLevel && Object.entries(building.level === 0 ? building.cost : building.upgradeCost).every(([key, value]) => gameData.resources[key] >= value);
+                    const buttonClass = canBuild ? 'bg-green-600 hover:bg-green-700' : 'bg-stone-500 cursor-not-allowed';
+                    const cost = building.level === 0 ? building.cost : building.upgradeCost;
+                    let costString = Object.entries(cost).map(([key, value]) => `${value} ${key.charAt(0).toUpperCase() + key.slice(1)}`).join(', ');
+
+                    buildingsList.innerHTML += `
+                        <div class="bg-stone-700 p-3 rounded-md shadow">
+                            <h4 class="text-lg font-semibold text-amber-400">${building.name} (Level ${building.level})</h4>
+                            <p class="text-xs text-stone-300 mb-1">${building.description}</p>
+                            <p class="text-xs text-stone-300 mb-1">Cost: ${costString}</p>
+                            <button onclick="buildStructure('${building.id}')" class="w-full text-white font-semibold py-2 px-3 rounded-md text-sm ${buttonClass} transition-colors" ${!canBuild ? 'disabled' : ''}>${building.level === 0 ? 'Build' : 'Upgrade'}</button>
+                        </div>
+                    `;
+                });
+            }
+
+            // Update units list
+            const unitsList = document.getElementById('unitsList');
+            if (unitsList) {
+                unitsList.innerHTML = '';
+                gameData.units.forEach(unit => {
+                    const canTrain = Object.entries(unit.cost).every(([key, value]) => gameData.resources[key] >= value);
+                    const buttonClass = canTrain ? 'bg-green-600 hover:bg-green-700' : 'bg-stone-500 cursor-not-allowed';
+                    let costString = Object.entries(unit.cost).map(([key, value]) => `${value} ${key.charAt(0).toUpperCase() + key.slice(1)}`).join(', ');
+
+                    unitsList.innerHTML += `
+                        <div class="bg-stone-700 p-3 rounded-md shadow">
+                            <h4 class="text-lg font-semibold text-amber-400">${unit.name} (x${unit.count})</h4>
+                            <p class="text-xs text-stone-300 mb-1">${unit.description}</p>
+                            <p class="text-xs text-stone-300 mb-1">Cost: ${costString}</p>
+                            <button onclick="trainUnit('${unit.id}')" class="w-full text-white font-semibold py-2 px-3 rounded-md text-sm ${buttonClass} transition-colors" ${!canTrain ? 'disabled' : ''}>Train</button>
+                        </div>
+                    `;
+                });
+            }
+
+            // Update quests list
+            const questsList = document.getElementById('questsList');
+            if (questsList) {
+                questsList.innerHTML = '';
+                gameData.quests.forEach(quest => {
+                    if (!quest.active) return;
+
+                    let objectivesHtml = '';
+                    quest.objectives.forEach(objective => {
+                        objectivesHtml += `<li class="text-sm text-stone-300 ${objective.completed ? 'line-through text-stone-500' : ''}">${objective.description}</li>`;
+                    });
+
+                    questsList.innerHTML += `
+                        <div class="bg-stone-700 p-3 rounded-md shadow">
+                            <h4 class="text-lg font-semibold text-amber-400">${quest.title} ${quest.completed ? '(Completed)' : ''}</h4>
+                            <p class="text-xs text-stone-300 mb-1">${quest.description}</p>
+                            <ul>${objectivesHtml}</ul>
+                        </div>
+                    `;
+                });
+            }
+        }
+
+        function switchTab(tabName) {
+            gameData.currentTab = tabName;
+            document.querySelectorAll('.main-tab-content').forEach(tab => tab.classList.add('hidden'));
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('bg-amber-600', 'text-white', 'font-semibold');
+                button.classList.add('bg-stone-700', 'text-amber-300');
+            });
+
+            const tabElement = document.getElementById(`${tabName}Screen`);
+            const buttonElement = document.querySelector(`.tab-button[onclick="switchTab('${tabName}')"]`);
+
+            if (tabElement) {
+                 tabElement.classList.remove('hidden');
+            }
+
+            if (buttonElement) {
+                buttonElement.classList.add('bg-amber-600', 'text-white', 'font-semibold');
+                buttonElement.classList.remove('bg-stone-700', 'text-amber-300');
+            }
+
+            if (['crafting', 'inventory', 'upgrades', 'character', 'buildings', 'map', 'quests', 'units'].includes(tabName)) {
+                 updateUI(); 
+            }
+
+            if (tabName === 'map') {
+                generateMapView();
+            }
+        }
+        window.switchTab = switchTab;
+
+        // Initialize game on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadGame();
+            if (!gameData.gameInitialized) {
+                showCharacterCreator();
+            } else {
+                switchTab('game'); 
+            }
+        });
+
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #2B2018; }
+        h1, h2, h3, h4, .font-orbitron { font-family: 'Orbitron', sans-serif; }
+        .tab-button { transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out; }
+        .progress-bar-bg { background-color: #573B20; }
+        .progress-bar-fill { background-color: #D97706; transition: width 0.3s ease; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #403126; border-radius: 4px;}
+        ::-webkit-scrollbar-thumb { background: #854d0e; border-radius: 4px;}
+        ::-webkit-scrollbar-thumb:hover { background: #a16207; }
+    </style>
+</head>
+<body class="bg-stone-900 text-amber-50 antialiased">
+
+    <div id="characterCreatorScreen" class="fixed inset-0 bg-stone-900 bg-opacity-95 z-50 flex items-center justify-center p-4">
+        <div class="bg-stone-800 p-6 sm:p-8 rounded-xl shadow-2xl max-w-lg w-full">
+            <h2 class="text-3xl font-orbitron text-amber-500 mb-6 text-center">Create Your Survivor</h2>
+            <div class="space-y-4">
+                <div>
+                    <label for="characterNameInput" class="block text-sm font-medium text-amber-200 mb-1">Character Name:</label>
+                    <input type="text" id="characterNameInput" value="Survivor" class="w-full bg-stone-700 text-white p-2 rounded-md border border-stone-600 focus:ring-amber-500 focus:border-amber-500">
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-amber-200 mb-1">Choose your House Affiliation:</p>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div><input type="radio" name="house" value="Atreides" id="houseAtreides" class="sr-only peer"><label for="houseAtreides" class="block bg-stone-700 p-3 rounded-md text-center cursor-pointer peer-checked:bg-green-600 peer-checked:text-white hover:bg-stone-600">Atreides<br><span class="text-xs">+20 Max Health</span></label></div>
+                        <div><input type="radio" name="house" value="Harkonnen" id="houseHarkonnen" class="sr-only peer"><label for="houseHarkonnen" class="block bg-stone-700 p-3 rounded-md text-center cursor-pointer peer-checked:bg-red-600 peer-checked:text-white hover:bg-stone-600">Harkonnen<br><span class="text-xs">+100 Solari</span></label></div>
+                        <div><input type="radio" name="house" value="Corrino" id="houseCorrino" class="sr-only peer"><label for="houseCorrino" class="block bg-stone-700 p-3 rounded-md text-center cursor-pointer peer-checked:bg-yellow-500 peer-checked:text-black hover:bg-stone-600">Corrino<br><span class="text-xs">+10 Plasteel</span></label></div>
+                        <div><input type="radio" name="house" value="Fremen" id="houseFremen" class="sr-only peer"><label for="houseFremen" class="block bg-stone-700 p-3 rounded-md text-center cursor-pointer peer-checked:bg-sky-600 peer-checked:text-white hover:bg-stone-600">Fremen<br><span class="text-xs">+20 Water</span></label></div>
+                    </div>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-amber-200 mb-1">Choose your Background:</p>
+                     <div class="grid grid-cols-2 gap-3">
+                        <div><input type="radio" name="background" value="Scout" id="bgScout" class="sr-only peer"><label for="bgScout" class="block bg-stone-700 p-3 rounded-md text-center cursor-pointer peer-checked:bg-teal-600 peer-checked:text-white hover:bg-stone-600">Scout<br><span class="text-xs">+10 Water</span></label></div>
+                        <div><input type="radio" name="background" value="Technician" id="bgTechnician" class="sr-only peer"><label for="bgTechnician" class="block bg-stone-700 p-3 rounded-md text-center cursor-pointer peer-checked:bg-indigo-600 peer-checked:text-white hover:bg-stone-600">Technician<br><span class="text-xs">+5 Plasteel</span></label></div>
+                        <div><input type="radio" name="background" value="Warrior" id="bgWarrior" class="sr-only peer"><label for="bgWarrior" class="block bg-stone-700 p-3 rounded-md text-center cursor-pointer peer-checked:bg-rose-600 peer-checked:text-white hover:bg-stone-600">Warrior<br><span class="text-xs">Full Health</span></label></div>
+                        <div><input type="radio" name="background" value="Merchant" id="bgMerchant" class="sr-only peer"><label for="bgMerchant" class="block bg-stone-700 p-3 rounded-md text-center cursor-pointer peer-checked:bg-lime-600 peer-checked:text-white hover:bg-stone-600">Merchant<br><span class="text-xs">+150 Solari</span></label></div>
+                    </div>
+                </div>
+                <button onclick="finalizeCharacterCreation()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition-colors mt-6">Begin Your Journey on Arrakis</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="mainGameScreen" class="container mx-auto p-2 sm:p-4 max-w-7xl hidden">
+        <div id="narrativeScreen" class="fixed inset-0 bg-stone-900 bg-opacity-95 z-50 flex items-center justify-center p-4 hidden">
+            <div class="bg-stone-800 p-6 sm:p-8 rounded-xl shadow-2xl max-w-lg w-full">
+                <h2 class="text-2xl font-orbitron text-amber-500 mb-4 text-center">A Message from Arrakis</h2>
+                <p id="narrativeText" class="text-stone-300 mb-4"></p>
+                <button onclick="closeNarrative()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition-colors">Continue</button>
+            </div>
+        </div>
+
+        <header class="bg-stone-800 p-4 rounded-lg shadow-xl mb-4">
+            <div class="flex flex-col sm:flex-row justify-between items-center">
+                <h1 class="text-3xl sm:text-4xl font-orbitron text-amber-500 mb-2 sm:mb-0">Arrakis Tycoon</h1>
+                <div class="text-xs text-stone-400">The spice must flow...</div>
+            </div>
+             <nav class="mt-4 flex flex-wrap justify-center sm:justify-start space-x-1 sm:space-x-2">
+                <button onclick="switchTab('game')" class="tab-button py-2 px-3 sm:px-4 rounded-t-md text-sm font-medium">Game</button>
+                <button onclick="switchTab('character')" class="tab-button py-2 px-3 sm:px-4 rounded-t-md text-sm font-medium">Character</button>
+                <button onclick="switchTab('upgrades')" class="tab-button py-2 px-3 sm:px-4 rounded-t-md text-sm font-medium">Upgrades</button>
+                <button onclick="switchTab('buildings')" class="tab-button py-2 px-3 sm:px-4 rounded-t-md text-sm font-medium">Buildings</button>
+                <button onclick="switchTab('units')" class="tab-button py-2 px-3 sm:px-4 rounded-t-md text-sm font-medium">Units</button>
+                <button onclick="switchTab('map')" class="tab-button py-2 px-3 sm:px-4 rounded-t-md text-sm font-medium">Map</button>
+                <button onclick="switchTab('quests')" class="tab-button py-2 px-3 sm:px-4 rounded-t-md text-sm font-medium">Quests</button>
+                <button onclick="switchTab('crafting')" class="tab-button py-2 px-3 sm:px-4 rounded-t-md text-sm font-medium">Crafting</button>
+                <button onclick="switchTab('inventory')" class="tab-button py-2 px-3 sm:px-4 rounded-t-md text-sm font-medium">Inventory</button>
+                <button onclick="switchTab('lore')" class="tab-button py-2 px-3 sm:px-4 rounded-t-md text-sm font-medium">Lore</button>
+            </nav>
+        </header>
+
+        <div id="gameScreen" class="main-tab-content bg-stone-800 p-4 rounded-lg shadow-xl">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="md:col-span-1 space-y-4">
+                    <div class="bg-stone-700 p-4 rounded-lg shadow">
+                        <h3 class="text-xl font-semibold text-amber-400 mb-2">Resources</h3>
+                        <p>🏜️ Spice: <span id="spiceDisplay" class="font-bold text-amber-300">0</span></p>
+                        <p>💧 Water: <span id="waterDisplay" class="font-bold text-sky-300">0</span></p>
+                        <p>💰 Solari: <span id="solariDisplay" class="font-bold text-yellow-300">0</span></p>
+                        <p>🔩 Plasteel: <span id="plasteelDisplay" class="font-bold text-slate-300">0</span></p>
+                        <p>🍖 Food: <span id="foodDisplay" class="font-bold text-orange-300">0</span></p>
+                    </div>
+                    <div class="bg-stone-700 p-4 rounded-lg shadow">
+                        <h3 class="text-xl font-semibold text-amber-400 mb-2">Manual Actions</h3>
+                        <button onclick="manualHarvestSpice()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2 px-4 rounded-md mb-2 transition-colors">🏜️ Harvest Spice</button>
+                        <p class="text-xs text-stone-300 text-center">Click to gather spice manually</p>
+                    </div>
+                </div>
+                <div class="md:col-span-2 bg-stone-700 p-4 rounded-lg shadow">
+                    <h3 class="text-xl font-semibold text-amber-400 mb-2">📜 Event Log</h3>
+                    <div id="logScreen" class="h-64 sm:h-96 overflow-y-auto bg-stone-800 p-3 rounded-md border border-stone-600 text-sm">
+                        <p class="text-stone-400 text-center">Welcome to Arrakis. Your journey begins...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="characterScreen" class="main-tab-content hidden bg-stone-800 p-4 rounded-lg shadow-xl">
+            <h2 class="text-2xl font-orbitron text-amber-500 mb-4">👤 Character Status</h2>
+            <div class="bg-stone-700 p-4 rounded-lg shadow space-y-2">
+                <p>Name: <span id="characterNameDisplay" class="font-semibold text-amber-300"></span></p>
+                <p>House: <span id="characterHouseDisplay" class="font-semibold text-amber-300"></span></p>
+                <p>Background: <span id="characterBackgroundDisplay" class="font-semibold text-amber-300"></span></p>
+                <p>Level: <span id="characterLevelDisplay" class="font-semibold text-amber-300"></span> | Exp: <span id="characterExpDisplay" class="font-semibold text-amber-300"></span></p>
+                <p>Attack: <span id="characterAttackDisplay" class="font-semibold text-amber-300"></span> | Defense: <span id="characterDefenseDisplay" class="font-semibold text-amber-300"></span></p>
+                <div>
+                    <p>Health: <span id="healthDisplay" class="font-semibold text-green-400"></span></p>
+                    <div class="w-full progress-bar-bg rounded-full h-4 mt-1">
+                        <div id="healthBarFill" class="progress-bar-fill h-4 rounded-full"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="upgradesScreen" class="main-tab-content hidden bg-stone-800 p-4 rounded-lg shadow-xl">
+            <h2 class="text-2xl font-orbitron text-amber-500 mb-4">⚙️ Upgrades</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-stone-700 p-4 rounded-lg shadow">
+                    <h3 class="text-lg font-semibold text-amber-400 mb-2">🏜️ Manual Spice Harvesting</h3>
+                    <p class="text-sm text-stone-300">Level: <span id="manualSpiceLevel">1</span></p>
+                    <p class="text-sm text-stone-300 mb-2">Cost: <span id="manualSpiceUpgradeCost">20</span> Solari</p>
+                    <button onclick="upgradeManualSpiceHarvester()" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-semibold py-2 px-3 rounded-md text-sm transition-colors">Upgrade</button>
+                </div>
+                <div class="bg-stone-700 p-4 rounded-lg shadow">
+                    <h3 class="text-lg font-semibold text-amber-400 mb-2">🤖 Spice Auto-Harvesters</h3>
+                    <p class="text-sm text-stone-300">Count: <span id="autoSpiceCount">0</span> | Level: <span id="autoSpiceLevel">0</span></p>
+                    <p class="text-sm text-stone-300 mb-1">Buy New: <span id="autoSpiceCost">100</span> Solari</p>
+                    <button onclick="buyAutoHarvester('spice')" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-3 rounded-md text-sm mb-2 transition-colors">Buy Harvester</button>
+                    <p class="text-sm text-stone-300 mb-1">Upgrade Efficiency: <span id="autoSpiceUpgradeEffCost">N/A</span> Solari</p>
+                    <button onclick="upgradeAutoHarvester('spice')" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-semibold py-2 px-3 rounded-md text-sm transition-colors">Upgrade Efficiency</button>
+                </div>
+                <div class="bg-stone-700 p-4 rounded-lg shadow">
+                    <h3 class="text-lg font-semibold text-amber-400 mb-2">💧 Water Auto-Collectors</h3>
+                    <p class="text-sm text-stone-300">Count: <span id="autoWaterCount">0</span> | Level: <span id="autoWaterLevel">0</span></p>
+                    <p class="text-sm text-stone-300 mb-1">Buy New: <span id="autoWaterCost">150</span> Solari</p>
+                    <button onclick="buyAutoHarvester('water')" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-3 rounded-md text-sm mb-2 transition-colors">Buy Collector</button>
+                    <p class="text-sm text-stone-300 mb-1">Upgrade Efficiency: <span id="autoWaterUpgradeEffCost">N/A</span> Solari</p>
+                    <button onclick="upgradeAutoHarvester('water')" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-semibold py-2 px-3 rounded-md text-sm transition-colors">Upgrade Efficiency</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="buildingsScreen" class="main-tab-content hidden bg-stone-800 p-4 rounded-lg shadow-xl">
+            <h2 class="text-2xl font-orbitron text-amber-500 mb-4">🏛️ Buildings</h2>
+            <div id="buildingsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            </div>
+        </div>
+
+        <div id="unitsScreen" class="main-tab-content hidden bg-stone-800 p-4 rounded-lg shadow-xl">
+            <h2 class="text-2xl font-orbitron text-amber-500 mb-4">⚔️ Units</h2>
+            <div id="unitsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            </div>
+        </div>
+
+        <div id="mapScreen" class="main-tab-content hidden bg-stone-800 p-4 rounded-lg shadow-xl">
+            <h2 class="text-2xl font-orbitron text-amber-500 mb-4">🗺️ Arrakis Map</h2>
+            <div id="mapContainer" class="bg-stone-700 p-3 rounded-md shadow">
+            </div>
+            <div class="mt-4 flex justify-around">
+                <button onclick="moveCharacter('north')" class="bg-stone-600 hover:bg-stone-700 text-white py-2 px-4 rounded-md">North</button>
+            </div>
+            <div class="flex justify-around mt-2">
+                <button onclick="moveCharacter('west')" class="bg-stone-600 hover:bg-stone-700 text-white py-2 px-4 rounded-md">West</button>
+                <button onclick="moveCharacter('east')" class="bg-stone-600 hover:bg-stone-700 text-white py-2 px-4 rounded-md">East</button>
+            </div>
+            <div class="mt-2 flex justify-around">
+                <button onclick="moveCharacter('south')" class="bg-stone-600 hover:bg-stone-700 text-white py-2 px-4 rounded-md">South</button>
+            </div>
+        </div>
+
+        <div id="questsScreen" class="main-tab-content hidden bg-stone-800 p-4 rounded-lg shadow-xl">
+            <h2 class="text-2xl font-orbitron text-amber-500 mb-4">📜 Quests</h2>
+            <div id="questsList" class="space-y-3">
+            </div>
+        </div>
+        
+        <div id="craftingScreen" class="main-tab-content hidden bg-stone-800 p-4 rounded-lg shadow-xl">
+            <h2 class="text-2xl font-orbitron text-amber-500 mb-4">🔧 Crafting Station</h2>
+            <div id="craftingRecipesList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            </div>
+        </div>
+        
+        <div id="inventoryScreen" class="main-tab-content hidden bg-stone-800 p-4 rounded-lg shadow-xl">
+            <h2 class="text-2xl font-orbitron text-amber-500 mb-4">🎒 Inventory</h2>
+            <div id="inventoryList" class="space-y-3">
+            </div>
+        </div>
+
+        <div id="loreScreen" class="main-tab-content hidden bg-stone-800 p-4 rounded-lg shadow-xl">
+            <h2 class="text-2xl font-orbitron text-amber-500 mb-4">📚 Whispers of Arrakis (Lore)</h2>
+            <div id="loreContent" class="prose prose-sm sm:prose prose-invert max-w-none bg-stone-700 p-4 rounded-md shadow h-96 overflow-y-auto">
+                <h3 class="text-amber-400">🏜️ The Spice Melange</h3>
+                <p>Melange, colloquially known as "the spice," is a psychoactive chemical substance found only on the desert planet Arrakis. It is the most valuable and rarest commodity in the Imperium.</p>
+                <p>The spice extends life, enhances sensory perception and awareness, and for a select few, unlocks prescience—the ability to see limited pathways of the future. This prescience is essential for Navigators of the Spacing Guild, who use it to guide starships through foldspace, making interstellar travel possible.</p>
+                
+                <h3 class="text-amber-400">🪱 Shai-Hulud (The Sandworms)</h3>
+                <p>The great sandworms of Arrakis, also known by the Fremen as Shai-Hulud or "Old Man of the Desert," are colossal creatures that dominate the deep desert. They are inextricably linked to the spice cycle, as their lifecycle produces the precious melange.</p>
+                <p>These massive beings can grow to lengths of over 400 meters and are attracted to rhythmic vibrations in the sand. The Fremen have learned to ride these magnificent creatures, using maker hooks and thumpers to control their movement.</p>
+                
+                <h3 class="text-amber-400">🏕️ The Fremen</h3>
+                <p>The Fremen are the native human inhabitants of Arrakis, descendants of the Zensunni wanderers who fled religious persecution. They have adapted perfectly to the harsh desert environment, developing a culture centered around water conservation and survival.</p>
+                <p>Their blue-within-blue eyes, caused by constant exposure to spice, mark them as true children of the desert. They possess unmatched fighting skills and an intimate knowledge of the desert that makes them formidable allies or enemies.</p>
+                
+                <h3 class="text-amber-400">🥽 The Stillsuit</h3>
+                <p>A stillsuit is a full-body suit worn in the open desert of Arrakis that is designed to preserve the body's moisture. The suit recycles all bodily fluids, including urine and perspiration, filtering and purifying them into drinkable water.</p>
+                <p>A properly maintained stillsuit can reduce water loss to as little as a thimbleful per day, making survival in the deep desert possible. The technology represents the pinnacle of Fremen engineering and desert adaptation.</p>
+                
+                <h3 class="text-amber-400">🏛️ The Great Houses</h3>
+                <p><strong>House Atreides:</strong> Known for their honor, loyalty, and just rule. Led by Duke Leto Atreides, they inspire fierce loyalty among their followers and are respected throughout the Imperium.</p>
+                <p><strong>House Harkonnen:</strong> The bitter enemies of House Atreides, known for their cruelty, cunning, and ruthless pursuit of power. They previously controlled Arrakis and its spice production.</p>
+                <p><strong>House Corrino:</strong> The Imperial House, rulers of the known universe for over 10,000 years. Emperor Shaddam IV sits upon the Golden Lion Throne, commanding the fearsome Sardaukar legions.</p>
+            </div>
+        </div>
+
+        <div id="combatScreen" class="fixed inset-0 bg-stone-900 bg-opacity-90 z-50 flex items-center justify-center p-4 hidden">
+            <div class="bg-stone-800 p-6 rounded-xl shadow-2xl max-w-lg w-full">
+                <h2 class="text-2xl font-orbitron text-amber-500 mb-4 text-center">⚔️ Combat Encounter</h2>
+                
+                <div class="flex justify-between mb-4">
+                    <div>
+                        <h3 id="combatPlayerName" class="text-xl font-semibold text-amber-400">You</h3>
+                        <p>Health: <span id="combatPlayerHealth" class="font-semibold text-green-400"></span></p>
+                        <div class="w-48 progress-bar-bg rounded-full h-4 mt-1">
+                            <div id="combatPlayerHealthBar" class="progress-bar-fill h-4 rounded-full"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 id="combatEnemyName" class="text-xl font-semibold text-red-400"></h3>
+                        <p>Health: <span id="combatEnemyHealth" class="font-semibold text-green-400"></span></p>
+                        <div class="w-48 progress-bar-bg rounded-full h-4 mt-1">
+                            <div id="combatEnemyHealthBar" class="progress-bar-fill h-4 rounded-full"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <p class="text-center text-stone-300">Turn: <span id="combatTurnIndicator"></span> (<span id="combatTurnTimer"></span>)</p>
+                    <div class="w-full progress-bar-bg rounded-full h-4 mt-1">
+                        <div id="combatTurnTimerBar" class="progress-bar-fill h-4 rounded-full"></div>
+                    </div>
+                </div>
+                
+                <div id="combatLog" class="h-32 overflow-y-auto bg-stone-700 p-2 rounded-md text-sm mb-4">
+                </div>
+                
+                <div class="flex justify-around">
+                    <button id="combatAttackBtn" onclick="performCombatAction('attack')" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md">Attack</button>
+                    <button id="combatFleeBtn" onclick="performCombatAction('flee')" class="bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded-md">Flee</button>
+                </div>
+            </div>
+        </div>
+
+        <footer class="text-center mt-8 py-4 border-t border-stone-700">
+            <p class="text-xs text-stone-400">Arrakis Tycoon v1.0 - A fan-made idle game inspired by Frank Herbert's Dune universe.</p>
+            <p class="text-xs text-stone-500 mt-1">All Dune intellectual property belongs to the Herbert Estate. This is a non-commercial fan project.</p>
+        </footer>
+    </div>
+
+</body>
+</html>
