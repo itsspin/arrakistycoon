@@ -2100,8 +2100,22 @@ async function initializeFirebase() {
         }
 
         // === EVENT LISTENERS ===
-        document.addEventListener('DOMContentLoaded', async () => {
-            await initializeFirebase();
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log("DOM loaded, starting initialization...");
+    
+    // Test - hide loading screen after 5 seconds regardless
+    setTimeout(() => {
+        console.log("5 second timeout - hiding loading screen");
+        const loadingScreen = document.getElementById('loadingScreen');
+        if (loadingScreen) {
+            loadingScreen.style.display = 'none';
+            showNotification("Debug: Forced loading screen hide", 'info');
+        }
+    }, 5000);
+    
+    await initializeFirebase();
+    // ... rest of your existing DOMContentLoaded code
+});
             
             // Tab switching
             document.querySelectorAll('.tab-button').forEach(button => {
