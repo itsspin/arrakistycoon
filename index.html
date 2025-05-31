@@ -56,7 +56,8 @@
             buildings: [
                 { id: 'spice_refinery', name: 'Spice Refinery', cost: { solari: 500, plasteel: 20 }, level: 0, maxLevel: 3, production: { spice: 5 }, upgradeCost: { solari: 750, plasteel: 30 }, description: "Refines raw spice into higher quality product." },
                 { id: 'water_still', name: 'Water Still', cost: { solari: 300, plasteel: 15 }, level: 0, maxLevel: 3, production: { water: 3 }, upgradeCost: { solari: 450, plasteel: 25 }, description: "Extracts water from the air." },
-                { id: 'barracks', name: 'Barracks', cost: { solari: 400, plasteel: 25 }, level: 0, maxLevel: 3, unitCapacity: 5, upgradeCost: { solari: 600, plasteel: 35 }, description: "Trains and houses your fighters." }
+                { id: 'barracks', name: 'Barracks', cost: { solari: 400, plasteel: 25 }, level: 0, maxLevel: 3, unitCapacity: 5, upgradeCost: { solari: 600, plasteel: 35 }, description: "Trains and houses your fighters." },
+                { id: 'teleporter', name: 'Teleporter', cost: { solari: 1000, plasteel: 50, spice: 200 }, level: 0, maxLevel: 1, size: { x: 2, y: 2 }, description: "Allows fast travel between locations." }
             ],
             units: [
                 { id: 'fighter', name: 'Fighter', cost: { solari: 100, food: 5 }, count: 0, stats: { attack: 5, defense: 3 }, upkeep: { food: 1 }, description: "Basic combat unit for protection." },
@@ -72,7 +73,8 @@
                     { x: 7, y: 3, type: 'ruins', name: 'Ancient Outpost', description: 'Ruins of an old outpost', loot: true },
                     { x: 4, y: 8, type: 'oasis', name: 'Hidden Spring', description: 'A rare water source in the desert', resource: 'water' }
                 ],
-                enemies: []
+                enemies: [],
+                features: generateInitialMapFeatures()
             },
             quests: [
                 { 
@@ -983,6 +985,36 @@
                 addLog(`You encountered a ${enemy.name}!`, "combat");
                 initiateCombat(enemy);
             }
+            
+            // Check for sandworm encounters
+            if (isDeepDesert(pos.x, pos.y) && enhancedRandom(0.02, gameData.character.level)) {
+                initiateSandwormEncounter();
+            }
+        }
+
+        function initiateSandwormEncounter() {
+            const sandworm = {
+                id: 'sandworm',
+                name: 'Great Sandworm',
+                health: 150,
+                attack: 20,
+                defense: 10,
+                loot: { spice: [50, 100], chance: { 'sandworm_tooth': 0.7 } },
+                position: { ...gameData.character.position }
+            };
+            addLog("A massive Sandworm erupts from the sands!", "combat");
+            initiateCombat(sandworm);
+        }
+
+        function isDeepDesert(x, y) {
+            // Example: Check if the area is far from settlements or oases
+            const settlementDistance = gameData.map.locations.filter(loc => loc.type === 'settlement').map(loc => Math.abs(loc.x - x) + Math.abs(loc.y - y));
+            const oasisDistance = gameData.map.locations.filter(loc => loc.type === 'oasis').map(loc => Math.abs(loc.x - x) + Math.abs(loc.y - y));
+            
+            const closestSettlement = settlementDistance.length > 0 ? Math.min(...settlementDistance) : Infinity;
+            const closestOasis = oasisDistance.length > 0 ? Math.min(...oasisDistance) : Infinity;
+            
+            return closestSettlement > 5 && closestOasis > 5;
         }
 
         function initiateCombat(enemy) {
@@ -1565,6 +1597,30 @@
             updateChatDisplay();
             updateGuildDisplay();
             updatePlayerTracker();
+
+            // Update equipment display
+            const equipmentDisplay = document.getElementById('equipmentDisplay');
+            if (equipmentDisplay) {
+                equipmentDisplay.innerHTML = '';
+                for (const slot in gameData.character.equipment) {
+                    const item = gameData.character.equipment[slot];
+                    if (item) {
+                        equipmentDisplay.innerHTML += `
+                            <div class="bg-stone-700 p-3 rounded-md shadow">
+                                <h4 class="text-md font-semibold text-amber-300">${item.name}</h4>
+                                <p class="text-xs text-stone-400">${item.type}</p>
+                                ${item.stats ? `<p class="text-xs text-stone-300">${Object.entries(item.stats).map(([key, value]) => `${key}: ${value}`).join(', ')}</p>` : ''}
+                            </div>
+                        `;
+                    } else {
+                        equipmentDisplay.innerHTML += `
+                            <div class="bg-stone-700 p-3 rounded-md shadow">
+                                <h4 class="text-md font-semibold text-stone-400">Empty ${slot} Slot</h4>
+                            </div>
+                        `;
+                    }
+                }
+            }
         }
 
         function switchTab(tabName) {
@@ -1596,6 +1652,26 @@
             }
         }
         window.switchTab = switchTab;
+
+        // Initialize map features
+        function generateInitialMapFeatures() {
+            const features = {};
+            for (let x = 0; x < 10; x++) {
+                for (let y = 0; y < 10; y++) {
+                    const key = `${x},${y}`;
+                    if (Math.random() < 0.2) {
+                        features[key] = 'rock'; // 20% chance of rock formation
+                    }
+                }
+            }
+            return features;
+        }
+
+        // Check if a cell is blocked
+        function isCellBlocked(x, y) {
+            const key = `${x},${y}`;
+            return gameData.map.features[key] === 'rock';
+        }
 
         // Initialize game on page load
         document.addEventListener('DOMContentLoaded', () => {
@@ -1734,6 +1810,9 @@
                         <div id="healthBarFill" class="progress-bar-fill h-4 rounded-full"></div>
                     </div>
                 </div>
+                <div id="equipmentDisplay" class="space-y-2">
+                    <h3 class="text-lg font-semibold text-amber-400">Equipment</h3>
+                </div>
             </div>
         </div>
 
@@ -1783,13 +1862,13 @@
             </div>
             <div class="mt-4 grid grid-cols-3 gap-2 max-w-xs mx-auto">
                 <div></div>
-                <button onclick="moveCharacter('north')" class="bg-stone-600 hover:bg-stone-700 text-white py-2 px-4 rounded-md text-sm">North</button>
+                <button onclick="moveCharacter('north')" class="bg-stone-600 hover:bg-stone-700 text-white py-2 px-4 rounded-md text-sm" ${isCellBlocked(gameData.character.position.x, gameData.character.position.y - 1) ? 'disabled' : ''}>North</button>
                 <div></div>
-                <button onclick="moveCharacter('west')" class="bg-stone-600 hover:bg-stone-700 text-white py-2 px-4 rounded-md text-sm">West</button>
+                <button onclick="moveCharacter('west')" class="bg-stone-600 hover:bg-stone-700 text-white py-2 px-4 rounded-md text-sm" ${isCellBlocked(gameData.character.position.x - 1, gameData.character.position.y) ? 'disabled' : ''}>West</button>
                 <div></div>
-                <button onclick="moveCharacter('east')" class="bg-stone-600 hover:bg-stone-700 text-white py-2 px-4 rounded-md text-sm">East</button>
+                <button onclick="moveCharacter('east')" class="bg-stone-600 hover:bg-stone-700 text-white py-2 px-4 rounded-md text-sm" ${isCellBlocked(gameData.character.position.x + 1, gameData.character.position.y) ? 'disabled' : ''}>East</button>
                 <div></div>
-                <button onclick="moveCharacter('south')" class="bg-stone-600 hover:bg-stone-700 text-white py-2 px-4 rounded-md text-sm">South</button>
+                <button onclick="moveCharacter('south')" class="bg-stone-600 hover:bg-stone-700 text-white py-2 px-4 rounded-md text-sm" ${isCellBlocked(gameData.character.position.x, gameData.character.position.y + 1) ? 'disabled' : ''}>South</button>
                 <div></div>
             </div>
         </div>
