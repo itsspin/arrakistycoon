@@ -248,6 +248,7 @@
         // Firebase variables
         let app, auth, db, userId;
         let firebaseInitialized = false;
+        let initializationTimeout;
 
         // === GAME CONSTANTS ===
         const CONFIG = {
@@ -434,6 +435,17 @@
             map: { enemies: {}, resources: {}, territories: {} }
         };
 
+        // === HELPER FUNCTIONS ===
+        function hideLoadingScreen() {
+            const loadingScreen = document.getElementById('loadingScreen');
+            if (loadingScreen) {
+                console.log("🎯 Hiding loading screen");
+                loadingScreen.style.display = 'none';
+            } else {
+                console.log("❌ Loading screen element not found!");
+            }
+        }
+
         // === FIREBASE FUNCTIONS ===
         async function initializeFirebase() {
             console.log("🚀 Starting Firebase initialization...");
@@ -449,6 +461,13 @@
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
                         console.log("✅ User authenticated:", user.uid);
+                        
+                        // Clear the timeout since Firebase is working
+                        if (initializationTimeout) {
+                            clearTimeout(initializationTimeout);
+                            console.log("⏰ Cleared initialization timeout");
+                        }
+                        
                         userId = user.uid;
                         gameState.player.id = userId;
                         firebaseInitialized = true;
@@ -458,6 +477,9 @@
                         console.log("🔑 No user, signing in anonymously...");
                         signInAnonymously(auth).catch((error) => {
                             console.error("❌ Anonymous sign in failed:", error);
+                            if (initializationTimeout) {
+                                clearTimeout(initializationTimeout);
+                            }
                             startOfflineMode();
                         });
                     }
@@ -465,6 +487,9 @@
                 
             } catch (error) {
                 console.error("❌ Firebase initialization failed:", error);
+                if (initializationTimeout) {
+                    clearTimeout(initializationTimeout);
+                }
                 startOfflineMode();
             }
         }
@@ -472,6 +497,11 @@
         function startOfflineMode() {
             console.log("📴 Starting offline mode...");
             firebaseInitialized = false;
+            
+            // Clear timeout if it exists
+            if (initializationTimeout) {
+                clearTimeout(initializationTimeout);
+            }
             
             // Try to load from localStorage
             try {
@@ -580,8 +610,10 @@
                     gameState.buildings = data.buildings || gameState.buildings;
                     
                     if (!gameState.player.name) {
+                        console.log("Player data exists but no name, showing name selection");
                         showNameSelectionModal();
                     } else {
+                        console.log("Player data loaded successfully, starting game");
                         completeGameInitialization();
                     }
                 } else {
@@ -652,6 +684,11 @@
 
         // === NAME SELECTION ===
         function showNameSelectionModal() {
+            console.log("🎭 Showing name selection modal");
+            
+            // Hide loading screen first
+            hideLoadingScreen();
+            
             const modal = document.createElement('div');
             modal.className = 'modal-overlay';
             modal.innerHTML = `
@@ -720,6 +757,8 @@
         }
 
         function showHouseSelection() {
+            console.log("🏠 Showing house selection modal");
+            
             const modal = document.createElement('div');
             modal.className = 'modal-overlay';
             modal.innerHTML = `
@@ -756,6 +795,8 @@
         }
 
         function selectHouse(houseId) {
+            console.log("🏛️ Selected house:", houseId);
+            
             const house = STATIC_DATA.HOUSES[houseId];
             gameState.player.house = houseId;
             
@@ -791,12 +832,8 @@
             
             gameState.gameInitialized = true;
             
-            // Hide loading screen
-            const loadingScreen = document.getElementById('loadingScreen');
-            if (loadingScreen) {
-                console.log("✅ Hiding loading screen");
-                loadingScreen.style.display = 'none';
-            }
+            // Make sure loading screen is hidden
+            hideLoadingScreen();
             
             // Initialize map
             initializeMap();
@@ -813,6 +850,8 @@
             
             showNotification(`Welcome to Arrakis, ${gameState.player.name}!`, 'success', 6000);
             showQuotePopup('"The beginning is a very delicate time..."');
+            
+            console.log("✅ Game initialization complete!");
         }
 
         // === MAP SYSTEM ===
@@ -1679,8 +1718,8 @@
             console.log("📱 DOM loaded, starting initialization...");
             
             // Set timeout to force start offline mode if Firebase takes too long
-            setTimeout(() => {
-                if (!gameState.gameInitialized) {
+            initializationTimeout = setTimeout(() => {
+                if (!gameState.gameInitialized && !firebaseInitialized) {
                     console.log("⏰ Timeout reached, starting offline mode");
                     startOfflineMode();
                 }
