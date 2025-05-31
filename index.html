@@ -62,6 +62,14 @@
                 { id: 'fighter', name: 'Fighter', cost: { solari: 100, food: 5 }, count: 0, stats: { attack: 5, defense: 3 }, upkeep: { food: 1 }, description: "Basic combat unit for protection." },
                 { id: 'harvester', name: 'Harvester', cost: { solari: 150, food: 3 }, count: 0, stats: { spiceGather: 3 }, upkeep: { food: 1 }, description: "Gathers spice from the desert." }
             ],
+            // Properly initialize multiplayer properties
+            players: {},
+            playerId: null,
+            chatMessages: [],
+            guilds: {},
+            worldEvents: {},
+            
+            // Add new map properties for enhanced features
             map: {
                 width: 10,
                 height: 10,
@@ -72,7 +80,9 @@
                     { x: 7, y: 3, type: 'ruins', name: 'Ancient Outpost', description: 'Ruins of an old outpost', loot: true },
                     { x: 4, y: 8, type: 'oasis', name: 'Hidden Spring', description: 'A rare water source in the desert', resource: 'water' }
                 ],
-                enemies: []
+                enemies: [],
+                features: {},
+                resources: []  // New property for resource nodes
             },
             quests: [
                 { 
@@ -140,6 +150,47 @@
             { id: 'fremen_cloak', name: 'Fremen Cloak', type: 'accessory', stats: { defense: 3, heatResistance: 0.15 }, description: 'Protection from the harsh desert sun.' },
             { id: 'crysknife', name: 'Crysknife', type: 'weapon', stats: { attack: 15 }, description: 'Sacred Fremen weapon made from a sandworm tooth.' }
         ];
+
+        // Initialize player ID and multiplayer functionality
+        function initializePlayer() {
+            if (!gameData.playerId) {
+                gameData.playerId = 'player_' + Math.random().toString(36).substr(2, 9);
+                
+                // Add some simulated players for multiplayer demonstration
+                gameData.players = {
+                    'player_sim1': {
+                        id: 'player_sim1',
+                        name: 'Paul Atreides',
+                        house: 'Atreides',
+                        level: 15,
+                        position: { x: 3, y: 4 }
+                    },
+                    'player_sim2': {
+                        id: 'player_sim2',
+                        name: 'Chani',
+                        house: 'Fremen',
+                        level: 22,
+                        position: { x: 8, y: 2 }
+                    },
+                    'player_sim3': {
+                        id: 'player_sim3',
+                        name: 'Duncan Idaho',
+                        house: 'Atreides',
+                        level: 18,
+                        position: { x: 1, y: 7 }
+                    }
+                };
+                
+                // Add the current player to the players object
+                gameData.players[gameData.playerId] = {
+                    id: gameData.playerId,
+                    name: gameData.character ? gameData.character.name : 'New Player',
+                    house: gameData.character ? gameData.character.house : null,
+                    level: gameData.character ? gameData.character.level : 1,
+                    position: gameData.character ? gameData.character.position : { x: 5, y: 5 }
+                };
+            }
+        }
 
         // Game Logic Functions
         function saveGame() {
@@ -227,7 +278,10 @@
 
             // Initialize map exploration
             initializeMap();
-
+            
+            // Initialize player for multiplayer
+            initializePlayer();
+            
             gameData.gameInitialized = true;
             document.getElementById('characterCreatorScreen').classList.add('hidden');
             document.getElementById('mainGameScreen').classList.remove('hidden');
@@ -369,7 +423,11 @@
         function startGameLoop() {
             if (gameLoopInterval) clearInterval(gameLoopInterval);
             gameLoopInterval = setInterval(gameTick, gameData.settings.gameSpeed);
-            setInterval(saveGame, 30000); 
+            setInterval(saveGame, 30000);
+            
+            // Add periodic updates for multiplayer features
+            setInterval(updatePlayerPositions, 5000); // Update simulated player positions every 5 seconds
+            setInterval(updateWorldEventsDisplay, 1000); // Update countdown timers every second
         }
 
         function manualHarvestSpice() {
@@ -690,6 +748,13 @@
                 case 'east': newX = Math.min(gameData.map.width - 1, pos.x + 1); break;
             }
             
+            // Check if the new position is blocked by rocks
+            const key = `${newX},${newY}`;
+            if (gameData.map.features[key] === 'rock') {
+                addLog("Your path is blocked by rocky terrain!", "error");
+                return;
+            }
+            
             // Calculate distance moved
             const distance = Math.abs(newX - pos.x) + Math.abs(newY - pos.y);
             
@@ -706,6 +771,11 @@
             // Update position
             gameData.character.position = { x: newX, y: newY };
             addLog(`Moved ${direction}. Used ${waterCost} water.`, "action");
+            
+            // Update player position in players object
+            if (gameData.playerId && gameData.players[gameData.playerId]) {
+                gameData.players[gameData.playerId].position = { x: newX, y: newY };
+            }
             
             // Explore new area
             exploreArea(newX, newY);
@@ -778,7 +848,40 @@
             if (enemy) {
                 addLog(`You encountered a ${enemy.name}!`, "combat");
                 initiateCombat(enemy);
+                return; // Stop checking for other encounters if combat is initiated
             }
+            
+            // Check for sandworm encounters in deep desert
+            if (isDeepDesert(pos.x, pos.y) && Math.random() < 0.05) { // 5% chance in deep desert
+                initiateSandwormEncounter();
+            }
+        }
+
+        function isDeepDesert(x, y) {
+            // Check if the area is far from settlements or oases
+            const locations = gameData.map.locations;
+            for (let i = 0; i < locations.length; i++) {
+                const loc = locations[i];
+                const distance = Math.abs(x - loc.x) + Math.abs(y - loc.y);
+                if (distance < 3) return false; // Not deep desert if close to a location
+            }
+            return true;
+        }
+
+        function initiateSandwormEncounter() {
+            const sandworm = {
+                id: 'sandworm',
+                name: 'Great Sandworm',
+                health: 150,
+                currentHealth: 150,
+                attack: 20,
+                defense: 10,
+                loot: { spice: [50, 100], chance: { 'sandworm_tooth': 0.7 } },
+                position: { ...gameData.character.position }
+            };
+            
+            addLog("A massive Sandworm erupts from the sands!", "combat");
+            initiateCombat(sandworm);
         }
 
         function initiateCombat(enemy) {
@@ -792,6 +895,7 @@
             
             document.getElementById('combatScreen').classList.remove('hidden');
             updateCombatUI();
+            updateCombatInventory(); // Add this line
         }
 
         function addCombatMessage(message) {
@@ -1190,39 +1294,73 @@
                     const isExplored = gameData.map.explored[key];
                     const isPlayerPosition = x === playerPos.x && y === playerPos.y;
                     
-                    cell.className = 'w-8 h-8 flex items-center justify-center text-xs font-bold rounded';
+                    cell.className = 'w-8 h-8 flex items-center justify-center text-xs font-bold rounded cursor-pointer';
+                    cell.dataset.x = x;
+                    cell.dataset.y = y;
+                    
+                    // Add click event for map interaction
+                    cell.addEventListener('click', () => {
+                        if (isExplored) {
+                            showLocationInfo(x, y);
+                        }
+                    });
                     
                     if (isPlayerPosition) {
                         cell.className += ' bg-amber-600 text-white';
                         cell.innerHTML = '👤';
                     } else if (isExplored) {
+                        // Check if there's another player here
+                        const otherPlayer = Object.values(gameData.players).find(p => 
+                            p.id !== gameData.playerId && p.position.x === x && p.position.y === y);
+                        
+                        if (otherPlayer) {
+                            cell.className += ' bg-purple-700 text-white';
+                            cell.innerHTML = '👥';
+                            cell.title = otherPlayer.name;
+                        }
                         // Check if there's a location here
-                        const location = gameData.map.locations.find(loc => loc.x === x && loc.y === y);
-                        if (location) {
-                            switch(location.type) {
-                                case 'settlement':
-                                    cell.className += ' bg-green-700 text-white';
-                                    cell.innerHTML = '🏠';
-                                    break;
-                                case 'ruins':
-                                    cell.className += ' bg-stone-600 text-white';
-                                    cell.innerHTML = '🏛️';
-                                    break;
-                                case 'oasis':
-                                    cell.className += ' bg-sky-700 text-white';
-                                    cell.innerHTML = '💧';
-                                    break;
-                                default:
-                                    cell.className += ' bg-amber-800 text-amber-200';
-                            }
-                        } else {
-                            // Check if there's an enemy here
-                            const enemy = gameData.map.enemies.find(e => e.position.x === x && e.position.y === y);
-                            if (enemy) {
-                                cell.className += ' bg-red-700 text-white';
-                                cell.innerHTML = '⚔️';
+                        else {
+                            const location = gameData.map.locations.find(loc => loc.x === x && loc.y === y);
+                            if (location) {
+                                switch(location.type) {
+                                    case 'settlement':
+                                        cell.className += ' bg-green-700 text-white';
+                                        cell.innerHTML = '🏠';
+                                        break;
+                                    case 'ruins':
+                                        cell.className += ' bg-stone-600 text-white';
+                                        cell.innerHTML = '🏛️';
+                                        break;
+                                    case 'oasis':
+                                        cell.className += ' bg-sky-700 text-white';
+                                        cell.innerHTML = '💧';
+                                        break;
+                                    default:
+                                        cell.className += ' bg-amber-800 text-amber-200';
+                                }
                             } else {
-                                cell.className += ' bg-amber-800 text-amber-200';
+                                // Check if there's an enemy here
+                                const enemy = gameData.map.enemies.find(e => e.position.x === x && e.position.y === y);
+                                if (enemy) {
+                                    cell.className += ' bg-red-700 text-white';
+                                    cell.innerHTML = '⚔️';
+                                } else {
+                                    // Check if there's a resource node here
+                                    const resource = gameData.map.resources.find(r => r.x === x && r.y === y);
+                                    if (resource) {
+                                        cell.className += ' bg-yellow-600 text-white';
+                                        cell.innerHTML = '✨';
+                                    } else {
+                                        // Check for terrain features
+                                        const feature = gameData.map.features[key];
+                                        if (feature === 'rock') {
+                                            cell.className += ' bg-gray-700 text-white';
+                                            cell.innerHTML = '⛰️';
+                                        } else {
+                                            cell.className += ' bg-amber-800 text-amber-200';
+                                        }
+                                    }
+                                }
                             }
                         }
                     } else {
@@ -1237,241 +1375,425 @@
             mapContainer.appendChild(grid);
         }
 
-        function updateCombatUI() {
-            if (!gameData.combat.inCombat) return;
+        function showLocationInfo(x, y) {
+            const key = `${x},${y}`;
             
-            const enemy = gameData.combat.enemy;
-            
-            document.getElementById('combatEnemyName').textContent = enemy.name;
-            document.getElementById('combatEnemyHealth').textContent = `${enemy.currentHealth} / ${enemy.health}`;
-            
-            const enemyHealthPercent = (enemy.currentHealth / enemy.health) * 100;
-            document.getElementById('combatEnemyHealthBar').style.width = `${enemyHealthPercent}%`;
-            
-            document.getElementById('combatPlayerHealth').textContent = `${Math.floor(gameData.character.health)} / ${gameData.character.maxHealth}`;
-            const playerHealthPercent = (gameData.character.health / gameData.character.maxHealth) * 100;
-            document.getElementById('combatPlayerHealthBar').style.width = `${playerHealthPercent}%`;
-            
-            document.getElementById('combatTurnIndicator').textContent = gameData.combat.playerTurn ? "Your Turn" : "Enemy Turn";
-            document.getElementById('combatTurnTimer').textContent = gameData.combat.turnTimer;
-            
-            const turnTimerPercent = (gameData.combat.turnTimer / gameData.combat.maxTurnTime) * 100;
-            document.getElementById('combatTurnTimerBar').style.width = `${turnTimerPercent}%`;
-            
-            // Update combat log
-            const combatLog = document.getElementById('combatLog');
-            combatLog.innerHTML = '';
-            gameData.combat.messages.forEach(message => {
-                const logEntry = document.createElement('p');
-                logEntry.className = 'text-sm text-stone-300';
-                logEntry.textContent = message;
-                combatLog.appendChild(logEntry);
-            });
-            
-            // Disable/enable buttons based on turn
-            document.getElementById('combatAttackBtn').disabled = !gameData.combat.playerTurn;
-            document.getElementById('combatFleeBtn').disabled = !gameData.combat.playerTurn;
-        }
-
-        function updateUI() {
-            if (!gameData.gameInitialized) return;
-
-            // Update resources
-            document.getElementById('spiceDisplay').textContent = Math.floor(gameData.resources.spice);
-            document.getElementById('waterDisplay').textContent = Math.floor(gameData.resources.water);
-            document.getElementById('solariDisplay').textContent = Math.floor(gameData.resources.solari);
-            document.getElementById('plasteelDisplay').textContent = Math.floor(gameData.resources.plasteel);
-            document.getElementById('foodDisplay').textContent = Math.floor(gameData.resources.food);
-
-            // Update character info
-            document.getElementById('characterNameDisplay').textContent = gameData.character.name;
-            document.getElementById('characterHouseDisplay').textContent = gameData.character.house || "N/A";
-            document.getElementById('characterBackgroundDisplay').textContent = gameData.character.background || "N/A";
-            document.getElementById('characterLevelDisplay').textContent = gameData.character.level;
-            document.getElementById('characterExpDisplay').textContent = `${gameData.character.experience} / ${gameData.character.experienceToNextLevel}`;
-            document.getElementById('characterAttackDisplay').textContent = gameData.character.attack;
-            document.getElementById('characterDefenseDisplay').textContent = gameData.character.defense;
-            
-            document.getElementById('healthDisplay').textContent = `${Math.floor(gameData.character.health)} / ${gameData.character.maxHealth}`;
-            const healthPercentage = (gameData.character.health / gameData.character.maxHealth) * 100;
-            document.getElementById('healthBarFill').style.width = `${healthPercentage}%`;
-
-            // Update harvester info
-            document.getElementById('manualSpiceLevel').textContent = gameData.harvesters.spice_harvester_manual_level;
-            document.getElementById('manualSpiceUpgradeCost').textContent = gameData.upgrades.spice_manual_upgrade_cost;
-
-            document.getElementById('autoSpiceCount').textContent = gameData.harvesters.spice_harvester_auto_count;
-            document.getElementById('autoSpiceLevel').textContent = gameData.harvesters.spice_harvester_auto_level;
-            document.getElementById('autoSpiceCost').textContent = gameData.upgrades.spice_auto_cost;
-            document.getElementById('autoSpiceUpgradeEffCost').textContent = (50 * Math.pow(1.5, gameData.harvesters.spice_harvester_auto_level)).toFixed(0);
-
-            document.getElementById('autoWaterCount').textContent = gameData.harvesters.water_collector_auto_count;
-            document.getElementById('autoWaterLevel').textContent = gameData.harvesters.water_collector_auto_level;
-            document.getElementById('autoWaterCost').textContent = gameData.upgrades.water_auto_cost;
-            document.getElementById('autoWaterUpgradeEffCost').textContent = (75 * Math.pow(1.6, gameData.harvesters.water_collector_auto_level)).toFixed(0);
-
-            // Update crafting recipes
-            const craftingList = document.getElementById('craftingRecipesList');
-            if (craftingList) {
-                craftingList.innerHTML = ''; 
-                gameData.craftingRecipes.forEach(recipe => {
-                    let costString = Object.entries(recipe.cost).map(([key, value]) => `${value} ${key.charAt(0).toUpperCase() + key.slice(1)}`).join(', ');
-                    const canCraft = Object.entries(recipe.cost).every(([key,value]) => gameData.resources[key] >= value);
-                    const buttonClass = canCraft ? 'bg-green-600 hover:bg-green-700' : 'bg-stone-500 cursor-not-allowed';
-
-                    craftingList.innerHTML += `
-                        <div class="bg-stone-700 p-3 rounded-md shadow">
-                            <h4 class="text-lg font-semibold text-amber-400">${recipe.name}</h4>
-                            <p class="text-xs text-stone-300 mb-1">Creates: ${recipe.output.quantity}x ${recipe.output.name}</p>
-                            <p class="text-xs text-stone-300 mb-1">Cost: ${costString}</p>
-                            <p class="text-xs text-stone-400 italic mb-2">${recipe.description || ''}</p>
-                            <button onclick="craftItem('${recipe.id}')" class="w-full text-white font-semibold py-2 px-3 rounded-md text-sm ${buttonClass} transition-colors" ${!canCraft ? 'disabled' : ''}>Craft</button>
-                        </div>
-                    `;
-                });
+            // Check if there's a location here
+            const location = gameData.map.locations.find(loc => loc.x === x && loc.y === y);
+            if (location) {
+                showNarrative(`${location.name}: ${location.description}`);
+                return;
             }
             
-            // Update inventory
-            const inventoryList = document.getElementById('inventoryList');
-            if (inventoryList) {
-                inventoryList.innerHTML = '';
-                if (gameData.inventory.length === 0) {
-                    inventoryList.innerHTML = '<p class="text-stone-400">Your inventory is empty.</p>';
-                } else {
-                    gameData.inventory.forEach(item => {
-                        let buttonHtml = '';
-                        if (item.type === 'consumable') {
-                            buttonHtml = `<button onclick="useItem('${item.id}')" class="bg-sky-600 hover:bg-sky-700 text-white text-xs py-1 px-2 rounded-md">Use</button>`;
-                        } else if (item.type === 'weapon' || item.type === 'armor' || item.type === 'accessory') {
-                            buttonHtml = `<button onclick="equipItem('${item.id}')" class="bg-purple-600 hover:bg-purple-700 text-white text-xs py-1 px-2 rounded-md">Equip</button>`;
-                        }
-                        
-                        inventoryList.innerHTML += `
-                            <div class="bg-stone-700 p-3 rounded-md shadow flex justify-between items-center">
-                                <div>
-                                    <h4 class="text-md font-semibold text-amber-300">${item.name} (x${item.quantity})</h4>
-                                    <p class="text-xs text-stone-400">${item.type}</p>
-                                    ${item.stats ? `<p class="text-xs text-stone-300">${Object.entries(item.stats).map(([key, value]) => `${key}: ${value}`).join(', ')}</p>` : ''}
-                                </div>
-                                ${buttonHtml}
-                            </div>
-                        `;
+            // Check if there's another player here
+            const otherPlayer = Object.values(gameData.players).find(p => 
+                p.id !== gameData.playerId && p.position.x === x && p.position.y === y);
+            if (otherPlayer) {
+                showNarrative(`You see ${otherPlayer.name} of House ${otherPlayer.house}, level ${otherPlayer.level}.`);
+                return;
+            }
+            
+            // Check if there's a resource node here
+            const resource = gameData.map.resources.find(r => r.x === x && r.y === y);
+            if (resource) {
+                // Create a dialog with a gather button
+                const resourceType = resource.type.charAt(0).toUpperCase() + resource.type.slice(1);
+                const narrativeScreen = document.getElementById('narrativeScreen');
+                const narrativeText = document.getElementById('narrativeText');
+                
+                if (narrativeScreen && narrativeText) {
+                    narrativeText.innerHTML = `
+                        <p>A rich deposit of ${resourceType}. You could gather resources here.</p>
+                        <button id="gatherResourceBtn" class="mt-4 bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors">Gather ${resourceType}</button>
+                    `;
+                    
+                    narrativeScreen.classList.remove('hidden');
+                    
+                    // Add event listener to the gather button
+                    document.getElementById('gatherResourceBtn').addEventListener('click', () => {
+                        gatherResources(x, y);
+                        closeNarrative();
                     });
                 }
+                return;
             }
-
-            // Update buildings list
-            const buildingsList = document.getElementById('buildingsList');
-            if (buildingsList) {
-                buildingsList.innerHTML = '';
-                gameData.buildings.forEach(building => {
-                    const canBuild = building.level < building.maxLevel && Object.entries(building.level === 0 ? building.cost : building.upgradeCost).every(([key, value]) => gameData.resources[key] >= value);
-                    const buttonClass = canBuild ? 'bg-green-600 hover:bg-green-700' : 'bg-stone-500 cursor-not-allowed';
-                    const cost = building.level === 0 ? building.cost : building.upgradeCost;
-                    let costString = Object.entries(cost).map(([key, value]) => `${value} ${key.charAt(0).toUpperCase() + key.slice(1)}`).join(', ');
-
-                    buildingsList.innerHTML += `
-                        <div class="bg-stone-700 p-3 rounded-md shadow">
-                            <h4 class="text-lg font-semibold text-amber-400">${building.name} (Level ${building.level})</h4>
-                            <p class="text-xs text-stone-300 mb-1">${building.description}</p>
-                            <p class="text-xs text-stone-300 mb-1">Cost: ${costString}</p>
-                            <button onclick="buildStructure('${building.id}')" class="w-full text-white font-semibold py-2 px-3 rounded-md text-sm ${buttonClass} transition-colors" ${!canBuild ? 'disabled' : ''}>${building.level === 0 ? 'Build' : 'Upgrade'}</button>
-                        </div>
-                    `;
-                });
+            
+            // Check for terrain features
+            const feature = gameData.map.features[key];
+            if (feature === 'rock') {
+                showNarrative("Rocky terrain blocks your path. You cannot move here.");
+                return;
             }
+            
+            showNarrative("An empty stretch of desert. Nothing of interest here.");
+        }
 
-            // Update units list
-            const unitsList = document.getElementById('unitsList');
-            if (unitsList) {
-                unitsList.innerHTML = '';
-                gameData.units.forEach(unit => {
-                    const canTrain = Object.entries(unit.cost).every(([key, value]) => gameData.resources[key] >= value);
-                    const buttonClass = canTrain ? 'bg-green-600 hover:bg-green-700' : 'bg-stone-500 cursor-not-allowed';
-                    let costString = Object.entries(unit.cost).map(([key, value]) => `${value} ${key.charAt(0).toUpperCase() + key.slice(1)}`).join(', ');
-
-                    unitsList.innerHTML += `
-                        <div class="bg-stone-700 p-3 rounded-md shadow">
-                            <h4 class="text-lg font-semibold text-amber-400">${unit.name} (x${unit.count})</h4>
-                            <p class="text-xs text-stone-300 mb-1">${unit.description}</p>
-                            <p class="text-xs text-stone-300 mb-1">Cost: ${costString}</p>
-                            <button onclick="trainUnit('${unit.id}')" class="w-full text-white font-semibold py-2 px-3 rounded-md text-sm ${buttonClass} transition-colors" ${!canTrain ? 'disabled' : ''}>Train</button>
-                        </div>
-                    `;
-                });
-            }
-
-            // Update quests list
-            const questsList = document.getElementById('questsList');
-            if (questsList) {
-                questsList.innerHTML = '';
-                gameData.quests.forEach(quest => {
-                    if (!quest.active) return;
-
-                    let objectivesHtml = '';
-                    quest.objectives.forEach(objective => {
-                        objectivesHtml += `<li class="text-sm text-stone-300 ${objective.completed ? 'line-through text-stone-500' : ''}">${objective.description}</li>`;
-                    });
-
-                    questsList.innerHTML += `
-                        <div class="bg-stone-700 p-3 rounded-md shadow">
-                            <h4 class="text-lg font-semibold text-amber-400">${quest.title} ${quest.completed ? '(Completed)' : ''}</h4>
-                            <p class="text-xs text-stone-300 mb-1">${quest.description}</p>
-                            <ul>${objectivesHtml}</ul>
-                        </div>
-                    `;
-                });
+        // Chat System
+        function sendChatMessage() {
+            const input = document.getElementById('chatInput');
+            if (!input) return;
+            
+            const message = input.value.trim();
+            if (message) {
+                const chatMessage = {
+                    id: Date.now(),
+                    playerId: gameData.playerId,
+                    playerName: gameData.character.name,
+                    message: message,
+                    timestamp: new Date().toLocaleTimeString()
+                };
+                gameData.chatMessages.push(chatMessage);
+                if (gameData.chatMessages.length > 50) {
+                    gameData.chatMessages.shift();
+                }
+                input.value = '';
+                updateChatDisplay();
+                
+                // Simulate responses from other players
+                setTimeout(() => {
+                    simulatePlayerResponse();
+                }, 2000 + Math.random() * 3000);
             }
         }
 
-        function switchTab(tabName) {
-            gameData.currentTab = tabName;
-            document.querySelectorAll('.main-tab-content').forEach(tab => tab.classList.add('hidden'));
-            document.querySelectorAll('.tab-button').forEach(button => {
-                button.classList.remove('bg-amber-600', 'text-white', 'font-semibold');
-                button.classList.add('bg-stone-700', 'text-amber-300');
+        function simulatePlayerResponse() {
+            const responses = [
+                "The spice must flow!",
+                "Have you seen any sandworms lately?",
+                "House Atreides stands with you.",
+                "Beware the Harkonnen spies.",
+                "I found a rich spice deposit near the southern dunes.",
+                "May Shai-Hulud clear your path.",
+                "I'm heading to Sietch Tabr, want to join?",
+                "My stillsuit is malfunctioning, need to find parts.",
+                "The water merchants are charging too much these days.",
+                "Did you hear about the Sardaukar troops spotted near the shield wall?"
+            ];
+            
+            const players = Object.values(gameData.players).filter(p => p.id !== gameData.playerId);
+            if (players.length > 0) {
+                const player = players[Math.floor(Math.random() * players.length)];
+                const response = responses[Math.floor(Math.random() * responses.length)];
+                
+                const chatMessage = {
+                    id: Date.now(),
+                    playerId: player.id,
+                    playerName: player.name,
+                    message: response,
+                    timestamp: new Date().toLocaleTimeString()
+                };
+                
+                gameData.chatMessages.push(chatMessage);
+                if (gameData.chatMessages.length > 50) {
+                    gameData.chatMessages.shift();
+                }
+                
+                updateChatDisplay();
+            }
+        }
+
+        function updateChatDisplay() {
+            const chatContainer = document.getElementById('chatMessages');
+            if (!chatContainer) return;
+            
+            chatContainer.innerHTML = '';
+            gameData.chatMessages.slice(-20).forEach(msg => {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'text-sm mb-1';
+                
+                // Highlight messages from the current player
+                const nameClass = msg.playerId === gameData.playerId ? 'text-green-400' : 'text-amber-400';
+                
+                messageDiv.innerHTML = `
+                    <span class="text-xs text-stone-500">[${msg.timestamp}]</span>
+                    <span class="${nameClass} font-semibold">${msg.playerName}:</span>
+                    <span class="text-stone-300">${msg.message}</span>
+                `;
+                chatContainer.appendChild(messageDiv);
             });
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
 
-            const tabElement = document.getElementById(`${tabName}Screen`);
-            const buttonElement = document.querySelector(`.tab-button[onclick="switchTab('${tabName}')"]`);
-
-            if (tabElement) {
-                 tabElement.classList.remove('hidden');
+        // Guild System
+        function createGuild() {
+            const guildName = document.getElementById('guildNameInput').value.trim();
+            if (!guildName) {
+                addLog("Please enter a guild name.", "error");
+                return;
             }
+            
+            const guildId = 'guild_' + Math.random().toString(36).substr(2, 9);
+            
+            gameData.guilds[guildId] = {
+                id: guildId,
+                name: guildName,
+                leader: gameData.playerId,
+                members: [gameData.playerId],
+                resources: { spice: 0, water: 0, solari: 0 },
+                level: 1,
+                created: Date.now()
+            };
+            
+            gameData.character.guildId = guildId;
+            addLog(`Guild "${guildName}" created successfully!`, "success");
+            updateGuildDisplay();
+            saveGame();
+        }
 
-            if (buttonElement) {
-                buttonElement.classList.add('bg-amber-600', 'text-white', 'font-semibold');
-                buttonElement.classList.remove('bg-stone-700', 'text-amber-300');
-            }
-
-            if (['crafting', 'inventory', 'upgrades', 'character', 'buildings', 'map', 'quests', 'units', 'multiplayer'].includes(tabName)) {
-                 updateUI(); 
-            }
-
-            if (tabName === 'map') {
-                generateMapView();
+        function updateGuildDisplay() {
+            const guildContainer = document.getElementById('guildInfo');
+            if (!guildContainer) return;
+            
+            if (gameData.character.guildId) {
+                const guild = gameData.guilds[gameData.character.guildId];
+                if (guild) {
+                    guildContainer.innerHTML = `
+                        <div class="bg-stone-700 p-4 rounded-lg">
+                            <h3 class="text-lg font-semibold text-amber-400 mb-2">${guild.name}</h3>
+                            <p class="text-sm text-stone-300">Level: ${guild.level}</p>
+                            <p class="text-sm text-stone-300">Members: ${guild.members.length}</p>
+                            <p class="text-sm text-stone-300">Resources: ${guild.resources.spice} Spice, ${guild.resources.water} Water</p>
+                            <button onclick="contributeToGuild()" class="mt-2 bg-green-600 hover:bg-green-700 text-white py-1 px-3 rounded text-sm">Contribute Resources</button>
+                        </div>
+                    `;
+                }
+            } else {
+                guildContainer.innerHTML = `
+                    <div class="bg-stone-700 p-4 rounded-lg">
+                        <h3 class="text-lg font-semibold text-amber-400 mb-2">Create Guild</h3>
+                        <input type="text" id="guildNameInput" placeholder="Guild Name" class="w-full bg-stone-600 text-white p-2 rounded mb-2">
+                        <button onclick="createGuild()" class="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded">Create Guild</button>
+                    </div>
+                `;
             }
         }
-        window.switchTab = switchTab;
 
-        // Initialize map features
-        function generateInitialMapFeatures() {
-            const features = {};
-            for (let x = 0; x < 10; x++) {
-                for (let y = 0; y < 10; y++) {
-                    const key = `${x},${y}`;
-                    if (Math.random() < 0.2) {
-                        features[key] = 'rock'; // 20% chance of rock formation
+        function contributeToGuild() {
+            if (!gameData.character.guildId) return;
+            
+            const guild = gameData.guilds[gameData.character.guildId];
+            if (!guild) return;
+            
+            // Contribute 10% of player's resources to guild
+            const spiceContribution = Math.floor(gameData.resources.spice * 0.1);
+            const waterContribution = Math.floor(gameData.resources.water * 0.1);
+            
+            if (spiceContribution > 0 || waterContribution > 0) {
+                guild.resources.spice += spiceContribution;
+                guild.resources.water += waterContribution;
+                
+                gameData.resources.spice -= spiceContribution;
+                gameData.resources.water -= waterContribution;
+                
+                addLog(`Contributed ${spiceContribution} Spice and ${waterContribution} Water to your guild.`, "success");
+                updateGuildDisplay();
+                updateUI();
+                saveGame();
+            } else {
+                addLog("You don't have enough resources to contribute.", "error");
+            }
+        }
+
+        // Player Tracker
+        function updatePlayerTracker() {
+            const trackerContainer = document.getElementById('playerTracker');
+            if (!trackerContainer) return;
+            
+            trackerContainer.innerHTML = '';
+            
+            // Get other players (not the current player)
+            const otherPlayers = Object.values(gameData.players).filter(player => player.id !== gameData.playerId);
+            
+            if (otherPlayers.length === 0) {
+                trackerContainer.innerHTML = '<p class="text-stone-400">No other players detected nearby.</p>';
+                return;
+            }
+            
+            otherPlayers.forEach(player => {
+                // Calculate distance
+                const dx = player.position.x - gameData.character.position.x;
+                const dy = player.position.y - gameData.character.position.y;
+                const distance = Math.sqrt(dx * dx + dy * dy).toFixed(1);
+                
+                const playerDiv = document.createElement('div');
+                playerDiv.className = 'bg-stone-700 p-3 rounded-md mb-2';
+                playerDiv.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <p class="text-amber-300 font-semibold">${player.name}</p>
+                            <p class="text-xs text-stone-400">Level ${player.level} • ${player.house}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-sm text-stone-300">${distance} units away</p>
+                            <button onclick="trackPlayer('${player.id}')" class="text-xs bg-sky-600 hover:bg-sky-700 text-white px-2 py-1 rounded">Track</button>
+                        </div>
+                    </div>
+                `;
+                trackerContainer.appendChild(playerDiv);
+            });
+        }
+
+        function trackPlayer(playerId) {
+            const player = gameData.players[playerId];
+            if (!player) return;
+            
+            addLog(`Tracking ${player.name}...`, "info");
+            
+            // Highlight the player's position on the map
+            switchTab('map');
+            
+            // Center the map view on the tracked player (visual effect only)
+            showNarrative(`You are tracking ${player.name} of House ${player.house}. They are currently at position (${player.position.x}, ${player.position.y}).`);
+        }
+
+        // World Events Management
+        function checkWorldEvents() {
+            const now = Date.now();
+            worldEventTypes.forEach(eventType => {
+                const lastTriggered = gameData.worldEvents[eventType.id] || 0;
+                if (now - lastTriggered > eventType.cooldown) {
+                    if (Math.random() < 0.1) { // 10% chance per check
+                        gameData.worldEvents[eventType.id] = now;
+                        eventType.effect();
+                        broadcastWorldEvent(eventType);
+                        
+                        // Update world events display
+                        updateWorldEventsDisplay();
                     }
                 }
-            }
-            return features;
+            });
         }
 
-        // Check if a cell is blocked
-        function isCellBlocked(x, y) {
-            const key = `${x},${y}`;
-            return gameData.map.features[key] === 'rock';
+        function broadcastWorldEvent(eventType) {
+            addLog(`🌍 WORLD EVENT: ${eventType.name} - ${eventType.description}`, "event");
+            
+            // Add to chat as a system message
+            gameData.chatMessages.push({
+                id: Date.now(),
+                playerId: 'system',
+                playerName: 'SYSTEM',
+                message: `WORLD EVENT: ${eventType.name} - ${eventType.description}`,
+                timestamp: new Date().toLocaleTimeString()
+            });
+            
+            updateChatDisplay();
+        }
+
+        function updateWorldEventsDisplay() {
+            const eventsContainer = document.getElementById('worldEventsDisplay');
+            if (!eventsContainer) return;
+            
+            eventsContainer.innerHTML = '';
+            
+            worldEventTypes.forEach(eventType => {
+                const lastTriggered = gameData.worldEvents[eventType.id] || 0;
+                const now = Date.now();
+                const timeRemaining = Math.max(0, eventType.cooldown - (now - lastTriggered));
+                const minutes = Math.floor(timeRemaining / 60000);
+                const seconds = Math.floor((timeRemaining % 60000) / 1000);
+                
+                let colorClass = 'text-purple-400';
+                if (eventType.id === 'water_discovery') colorClass = 'text-sky-400';
+                else if (eventType.id === 'sandworm_migration') colorClass = 'text-amber-400';
+                else if (eventType.id === 'faction_conflict') colorClass = 'text-red-400';
+                
+                eventsContainer.innerHTML += `
+                    <div class="bg-stone-600 p-2 rounded text-xs">
+                        <span class="${colorClass}">${eventType.name}:</span> 
+                        <span class="text-stone-300">${minutes}:${seconds.toString().padStart(2, '0')}</span>
+                    </div>
+                `;
+            });
+        }
+
+        // Add this to the loadGame function, right before the final closing brace
+        if (!gameData.players) {
+            gameData.players = {};
+        }
+        if (!gameData.chatMessages) {
+            gameData.chatMessages = [];
+        }
+        if (!gameData.guilds) {
+            gameData.guilds = {};
+        }
+        if (!gameData.worldEvents) {
+            gameData.worldEvents = {};
+        }
+        if (!gameData.map.resources) {
+            gameData.map.resources = [];
+            // Add some initial resource nodes
+            for (let i = 0; i < 5; i++) {
+                gameData.map.resources.push({
+                    x: Math.floor(Math.random() * gameData.map.width),
+                    y: Math.floor(Math.random() * gameData.map.height),
+                    type: Math.random() < 0.7 ? 'spice' : 'water'
+                });
+            }
+        }
+        if (!gameData.map.features) {
+            gameData.map.features = generateInitialMapFeatures();
+        }
+
+        // Add these lines at the end of the updateUI function, before the closing brace
+        // Update multiplayer features
+        updateChatDisplay();
+        updateGuildDisplay();
+        updatePlayerTracker();
+        updateWorldEventsDisplay();
+
+        // Update health display in main game screen
+        const healthDisplayMain = document.getElementById('healthDisplayMain');
+        const healthBarFillMain = document.getElementById('healthBarFillMain');
+        if (healthDisplayMain && healthBarFillMain) {
+            healthDisplayMain.textContent = `${Math.floor(gameData.character.health)} / ${gameData.character.maxHealth}`;
+            const healthPercentage = (gameData.character.health / gameData.character.maxHealth) * 100;
+            healthBarFillMain.style.width = `${healthPercentage}%`;
+        }
+
+        // Add these window function exports at the end of the script, before the DOMContentLoaded event
+        window.sendChatMessage = sendChatMessage;
+        window.createGuild = createGuild;
+        window.contributeToGuild = contributeToGuild;
+        window.trackPlayer = trackPlayer;
+
+        // Add these window function exports at the end of the script, before the DOMContentLoaded event
+        window.sendChatMessage = sendChatMessage;
+        window.createGuild = createGuild;
+        window.contributeToGuild = contributeToGuild;
+        window.trackPlayer = trackPlayer;
+
+        function updatePlayerPositions() {
+            // Move simulated players randomly
+            Object.values(gameData.players).forEach(player => {
+                if (player.id !== gameData.playerId) {
+                    // 30% chance to move
+                    if (Math.random() < 0.3) {
+                        const directions = ['north', 'south', 'east', 'west'];
+                        const direction = directions[Math.floor(Math.random() * directions.length)];
+                        
+                        let newX = player.position.x;
+                        let newY = player.position.y;
+                        
+                        switch(direction) {
+                            case 'north': newY = Math.max(0, player.position.y - 1); break;
+                            case 'south': newY = Math.min(gameData.map.height - 1, player.position.y + 1); break;
+                            case 'west': newX = Math.max(0, player.position.x - 1); break;
+                            case 'east': newX = Math.min(gameData.map.width - 1, player.position.x + 1); break;
+                        }
+                        
+                        // Check if the new position is valid (not blocked by rocks)
+                        const key = `${newX},${newY}`;
+                        if (gameData.map.features[key] !== 'rock') {
+                            player.position = { x: newX, y: newY };
+                        }
+                    }
+                }
+            });
+            
+            // If map tab is active, update the map view
+            if (gameData.currentTab === 'map') {
+                generateMapView();
+            }
         }
 
          // New function to trigger a sandworm attack on a random player
@@ -1502,11 +1824,126 @@
         // Set interval for dynamic events
         setInterval(triggerSandwormAttack, 180000); // Trigger every 3 minutes
 
+        function updateCombatInventory() {
+            const combatInventoryItems = document.getElementById('combatInventoryItems');
+            if (!combatInventoryItems) return;
+            
+            combatInventoryItems.innerHTML = '';
+            
+            // Filter for consumable items that can be used in combat
+            const usableItems = gameData.inventory.filter(item => 
+                item.type === 'consumable' && item.effect && (item.effect.health || item.effect.attack || item.effect.defense)
+            );
+            
+            if (usableItems.length === 0) {
+                combatInventoryItems.innerHTML = '<p class="text-xs text-stone-500">No usable items</p>';
+                return;
+            }
+            
+            usableItems.forEach(item => {
+                const itemButton = document.createElement('button');
+                itemButton.className = 'bg-stone-700 hover:bg-stone-600 text-xs text-amber-300 px-2 py-1 rounded';
+                itemButton.textContent = `${item.name} (${item.quantity})`;
+                itemButton.onclick = () => useCombatItem(item.id);
+                combatInventoryItems.appendChild(itemButton);
+            });
+        }
+
+        function useCombatItem(itemId) {
+            if (!gameData.combat.inCombat || !gameData.combat.playerTurn) return;
+            
+            const item = gameData.inventory.find(i => i.id === itemId);
+            if (!item) return;
+            
+            let itemUsed = false;
+            
+            if (item.effect.health && gameData.character.health < gameData.character.maxHealth) {
+                const healAmount = item.effect.health;
+                gameData.character.health = Math.min(gameData.character.maxHealth, gameData.character.health + healAmount);
+                addCombatMessage(`Used ${item.name}. Restored ${healAmount} health.`);
+                itemUsed = true;
+            }
+            
+            if (itemUsed) {
+                item.quantity--;
+                if (item.quantity <= 0) {
+                    const itemIndex = gameData.inventory.findIndex(i => i.id === itemId);
+                    gameData.inventory.splice(itemIndex, 1);
+                }
+                
+                updateCombatUI();
+                updateCombatInventory();
+            }
+        }
+
+        function gatherResources(x, y) {
+            const resourceIndex = gameData.map.resources.findIndex(r => r.x === x && r.y === y);
+            if (resourceIndex === -1) return;
+            
+            const resource = gameData.map.resources[resourceIndex];
+            
+            // Check if player is adjacent to the resource
+            const playerPos = gameData.character.position;
+            const isAdjacent = (Math.abs(playerPos.x - x) <= 1 && Math.abs(playerPos.y - y) <= 1);
+            
+            if (!isAdjacent) {
+                addLog("You need to be closer to gather resources.", "error");
+                return;
+            }
+            
+            // Gather the resource
+            const amount = Math.floor(Math.random() * 5) + 3; // 3-7 resources
+            
+            if (resource.type === 'spice') {
+                gameData.resources.spice += amount;
+                addLog(`Gathered ${amount} spice from the deposit.`, "success");
+            } else if (resource.type === 'water') {
+                gameData.resources.water += amount;
+                addLog(`Gathered ${amount} water from the source.`, "success");
+            }
+            
+            // Remove the resource node with a chance, or reduce its yield
+            if (Math.random() < 0.3) {
+                gameData.map.resources.splice(resourceIndex, 1);
+                addLog("The resource has been depleted.", "info");
+                
+                // Add a new resource node somewhere else
+                setTimeout(() => {
+                    const newResource = {
+                        x: Math.floor(Math.random() * gameData.map.width),
+                        y: Math.floor(Math.random() * gameData.map.height),
+                        type: Math.random() < 0.7 ? 'spice' : 'water'
+                    };
+                    gameData.map.resources.push(newResource);
+                    
+                    if (gameData.currentTab === 'map') {
+                        generateMapView();
+                    }
+                }, 60000); // New resource appears after 1 minute
+            }
+            
+            updateUI();
+            generateMapView();
+        }
+
+        function generateInitialMapFeatures() {
+            const features = {};
+            for (let x = 0; x < gameData.map.width; x++) {
+                for (let y = 0; y < gameData.map.height; y++) {
+                    const key = `${x},${y}`;
+                    if (Math.random() < 0.1) {
+                        features[key] = 'rock';
+                    }
+                }
+            }
+            return features;
+        }
     </script>
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #2B2018; }
         h1, h2, h3, h4, .font-orbitron { font-family: 'Orbitron', sans-serif; }
         .tab-button { transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out; }
+        .progress-button { transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out; }
         .progress-bar-bg { background-color: #573B20; }
         .progress-bar-fill { background-color: #D97706; transition: width 0.3s ease; }
         ::-webkit-scrollbar { width: 8px; }
@@ -1700,6 +2137,39 @@
             </div>
         </div>
 
+        <div id="multiplayerScreen" class="main-tab-content hidden bg-stone-800 p-4 rounded-lg shadow-xl">
+    <h2 class="text-2xl font-orbitron text-amber-500 mb-4">🌐 Multiplayer Hub</h2>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="space-y-4">
+            <div class="bg-stone-700 p-4 rounded-lg shadow">
+                <h3 class="text-lg font-semibold text-amber-400 mb-2">🗨️ World Chat</h3>
+                <div id="chatMessages" class="h-48 overflow-y-auto bg-stone-800 p-3 rounded-md border border-stone-600 text-sm mb-2">
+                </div>
+                <div class="flex gap-2">
+                    <input type="text" id="chatInput" placeholder="Type your message..." class="flex-1 bg-stone-600 text-white p-2 rounded text-sm" maxlength="100">
+                    <button onclick="sendChatMessage()" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded text-sm">Send</button>
+                </div>
+            </div>
+            <div id="guildInfo" class="bg-stone-700 p-4 rounded-lg shadow">
+                <h3 class="text-lg font-semibold text-amber-400 mb-2">🏰 Guild</h3>
+            </div>
+        </div>
+        <div class="space-y-4">
+            <div class="bg-stone-700 p-4 rounded-lg shadow">
+                <h3 class="text-lg font-semibold text-amber-400 mb-2">📍 Player Tracker</h3>
+                <div id="playerTracker" class="space-y-2">
+                </div>
+            </div>
+            <div class="bg-stone-700 p-4 rounded-lg shadow">
+                <h3 class="text-lg font-semibold text-amber-400 mb-2">🌍 World Events</h3>
+                <p class="text-sm text-stone-300 mb-2">Global events affect all players on Arrakis</p>
+                <div id="worldEventsDisplay" class="space-y-2">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
         <div id="loreScreen" class="main-tab-content hidden bg-stone-800 p-4 rounded-lg shadow-xl">
             <h2 class="text-2xl font-orbitron text-amber-500 mb-4">📚 Whispers of Arrakis (Lore)</h2>
             <div id="loreContent" class="prose prose-sm sm:prose prose-invert max-w-none bg-stone-700 p-4 rounded-md shadow h-96 overflow-y-auto">
@@ -1737,9 +2207,12 @@
                         <div class="w-48 progress-bar-bg rounded-full h-4 mt-1">
                             <div id="combatPlayerHealthBar" class="progress-bar-fill h-4 rounded-full"></div>
                         </div>
-                        <div id="combatInventoryDisplay" class="mt-2">
-                            <p class="text-xs text-stone-400">Inventory available during combat</p>
-                        </div>
+                        <div id="combatInventoryDisplay" class="mt-2 bg-stone-800 p-2 rounded-md max-h-32 overflow-y-auto">
+    <p class="text-xs text-stone-400 mb-1">Combat Items:</p>
+    <div id="combatInventoryItems" class="flex flex-wrap gap-1">
+        <!-- Combat items will be populated here -->
+    </div>
+</div>
                     </div>
                     <div>
                         <h3 id="combatEnemyName" class="text-xl font-semibold text-red-400"></h3>
@@ -1766,6 +2239,8 @@
                 </div>
             </div>
         </div>
+
+        
 
         <footer class="text-center mt-8 py-4 border-t border-stone-700">
             <p class="text-xs text-stone-400">Arrakis Tycoon v2.0 - Enhanced Multiplayer Edition</p>
