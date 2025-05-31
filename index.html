@@ -235,15 +235,6 @@ let initializationTimeout;
 async function initializeFirebase() {
     console.log("Starting Firebase initialization...");
     
-    // Set a timeout to fallback to offline mode
-    initializationTimeout = setTimeout(() => {
-        if (!firebaseInitialized) {
-            console.warn("Firebase initialization timed out, starting offline mode");
-            showNotification("Connection timeout. Starting in offline mode.", 'warning');
-            startOfflineMode();
-        }
-    }, 10000); // 10 second timeout
-    
     try {
         console.log("Initializing Firebase app...");
         app = initializeApp(firebaseConfig);
@@ -258,9 +249,6 @@ async function initializeFirebase() {
         onAuthStateChanged(auth, (user) => {
             console.log("Auth state changed:", user ? "User found" : "No user");
             
-            clearTimeout(initializationTimeout);
-            firebaseInitialized = true;
-            
             if (user) {
                 console.log("User authenticated:", user.uid);
                 userId = user.uid;
@@ -271,22 +259,24 @@ async function initializeFirebase() {
                 console.log("No user, signing in anonymously...");
                 signInAnonymously(auth).catch((error) => {
                     console.error("Anonymous sign in failed:", error);
-                    showNotification("Authentication failed. Starting offline mode.", 'error');
-                    startOfflineMode();
+                    showNotification("Authentication failed. Check console for details.", 'error');
+                    // Hide loading screen on error
+                    const loadingScreen = document.getElementById('loadingScreen');
+                    if (loadingScreen) {
+                        loadingScreen.style.display = 'none';
+                    }
                 });
             }
-        }, (error) => {
-            console.error("Auth state change error:", error);
-            clearTimeout(initializationTimeout);
-            showNotification("Authentication error. Starting offline mode.", 'error');
-            startOfflineMode();
         });
         
     } catch (error) {
         console.error("Firebase initialization failed:", error);
-        clearTimeout(initializationTimeout);
-        showNotification("Failed to connect to game servers. Starting offline mode.", 'error');
-        startOfflineMode();
+        showNotification("Failed to connect to game servers. Check console for details.", 'error');
+        // Hide loading screen on error
+        const loadingScreen = document.getElementById('loadingScreen');
+        if (loadingScreen) {
+            loadingScreen.style.display = 'none';
+        }
     }
 }
 
@@ -415,13 +405,16 @@ function completeGameInitialization() {
     
     gameState.gameInitialized = true;
     
-    // Hide loading screen
+    // Hide loading screen - THIS IS CRITICAL
     const loadingScreen = document.getElementById('loadingScreen');
     if (loadingScreen) {
         console.log("Hiding loading screen");
         loadingScreen.style.display = 'none';
+    } else {
+        console.log("Loading screen element not found!");
     }
     
+    // Rest of your existing function...
     // Initialize map
     console.log("Initializing map...");
     initializeMap();
