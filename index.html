@@ -212,22 +212,286 @@
 <body class="bg-stone-950 text-stone-300 antialiased">
 
     <script type="module">
-        // === FIREBASE CONFIGURATION ===
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, query, orderBy, limit, updateDoc, increment, arrayUnion, serverTimestamp, addDoc, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+// === FIREBASE CONFIGURATION ===
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, query, orderBy, limit, updateDoc, increment, arrayUnion, serverTimestamp, addDoc, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // REPLACE THIS WITH YOUR FIREBASE CONFIG
-        const firebaseConfig = {
-            apiKey: "AIzaSyB7Zz3fxQtfSuk3tuc2UimeVNoX7M_5sIk",
-            authDomain: "arrakis-spice-empire.firebaseapp.com",
-            projectId: "arrakis-spice-empire",
-            storageBucket: "arrakis-spice-empire.firebasestorage.app",
-            messagingSenderId: "685304270859",
-            appId: "1:685304270859:web:2d20f753db72a2de61f70e"
+// REPLACE THIS WITH YOUR FIREBASE CONFIG
+const firebaseConfig = {
+    apiKey: "AIzaSyB7Zz3fxQtfSuk3tuc2UimeVNoX7M_5sIk",
+    authDomain: "arrakis-spice-empire.firebaseapp.com",
+    projectId: "arrakis-spice-empire",
+    storageBucket: "arrakis-spice-empire.firebasestorage.app",
+    messagingSenderId: "685304270859",
+    appId: "1:685304270859:web:2d20f753db72a2de61f70e"
+};
+
+let app, auth, db, userId;
+let firebaseInitialized = false;
+let initializationTimeout;
+
+// === FIREBASE FUNCTIONS ===
+async function initializeFirebase() {
+    console.log("Starting Firebase initialization...");
+    
+    // Set a timeout to fallback to offline mode
+    initializationTimeout = setTimeout(() => {
+        if (!firebaseInitialized) {
+            console.warn("Firebase initialization timed out, starting offline mode");
+            showNotification("Connection timeout. Starting in offline mode.", 'warning');
+            startOfflineMode();
+        }
+    }, 10000); // 10 second timeout
+    
+    try {
+        console.log("Initializing Firebase app...");
+        app = initializeApp(firebaseConfig);
+        
+        console.log("Getting Auth instance...");
+        auth = getAuth(app);
+        
+        console.log("Getting Firestore instance...");
+        db = getFirestore(app);
+        
+        console.log("Setting up auth state listener...");
+        onAuthStateChanged(auth, (user) => {
+            console.log("Auth state changed:", user ? "User found" : "No user");
+            
+            clearTimeout(initializationTimeout);
+            firebaseInitialized = true;
+            
+            if (user) {
+                console.log("User authenticated:", user.uid);
+                userId = user.uid;
+                gameState.player.id = userId;
+                loadGame();
+                startMultiplayerSync();
+            } else {
+                console.log("No user, signing in anonymously...");
+                signInAnonymously(auth).catch((error) => {
+                    console.error("Anonymous sign in failed:", error);
+                    showNotification("Authentication failed. Starting offline mode.", 'error');
+                    startOfflineMode();
+                });
+            }
+        }, (error) => {
+            console.error("Auth state change error:", error);
+            clearTimeout(initializationTimeout);
+            showNotification("Authentication error. Starting offline mode.", 'error');
+            startOfflineMode();
+        });
+        
+    } catch (error) {
+        console.error("Firebase initialization failed:", error);
+        clearTimeout(initializationTimeout);
+        showNotification("Failed to connect to game servers. Starting offline mode.", 'error');
+        startOfflineMode();
+    }
+}
+
+async function loadGame() {
+    console.log("Loading game data...");
+    
+    if (!db || !userId) {
+        console.log("No database or user ID, showing name selection");
+        showNameSelectionModal();
+        return;
+    }
+    
+    try {
+        console.log("Fetching player document...");
+        const docRef = doc(db, 'players', userId);
+        const docSnap = await getDoc(docRef);
+        
+        if (docSnap.exists()) {
+            console.log("Player data found, loading...");
+            const data = docSnap.data();
+            Object.assign(gameState.player, data);
+            gameState.resources = data.resources || gameState.resources;
+            gameState.equipment = data.equipment || gameState.equipment;
+            gameState.inventory = data.inventory || gameState.inventory;
+            gameState.buildings = data.buildings || gameState.buildings;
+            
+            if (!gameState.player.name) {
+                console.log("No player name, showing name selection");
+                showNameSelectionModal();
+            } else {
+                console.log("Player data loaded successfully");
+                completeGameInitialization();
+            }
+        } else {
+            console.log("No existing player data, showing name selection");
+            showNameSelectionModal();
+        }
+    } catch (error) {
+        console.error('Load failed:', error);
+        showNotification('Failed to load game data. Starting fresh.', 'warning');
+        showNameSelectionModal();
+    }
+}
+
+// Add this new function for offline mode
+function startOfflineMode() {
+    console.log("Starting offline mode...");
+    firebaseInitialized = false;
+    
+    // Check if player already has a name in localStorage
+    const savedName = localStorage.getItem('arrakis_player_name');
+    const savedColor = localStorage.getItem('arrakis_player_color');
+    const savedHouse = localStorage.getItem('arrakis_player_house');
+    
+    if (savedName && savedColor && savedHouse) {
+        gameState.player.name = savedName;
+        gameState.player.color = savedColor;
+        gameState.player.house = savedHouse;
+        completeGameInitialization();
+    } else {
+        showNameSelectionModal();
+    }
+}
+
+async function saveGame() {
+    // Save to localStorage as backup
+    try {
+        localStorage.setItem('arrakis_gamestate', JSON.stringify({
+            player: gameState.player,
+            resources: gameState.resources,
+            equipment: gameState.equipment,
+            inventory: gameState.inventory,
+            buildings: gameState.buildings
+        }));
+        
+        if (gameState.player.name) {
+            localStorage.setItem('arrakis_player_name', gameState.player.name);
+            localStorage.setItem('arrakis_player_color', gameState.player.color);
+            if (gameState.player.house) {
+                localStorage.setItem('arrakis_player_house', gameState.player.house);
+            }
+        }
+    } catch (error) {
+        console.error('Local save failed:', error);
+    }
+    
+    if (!db || !userId || !firebaseInitialized) {
+        console.log("Firebase not available, skipping cloud save");
+        return;
+    }
+    
+    try {
+        const playerData = {
+            ...gameState.player,
+            resources: gameState.resources,
+            equipment: gameState.equipment,
+            inventory: gameState.inventory,
+            buildings: gameState.buildings,
+            lastSave: serverTimestamp(),
+            lastActive: serverTimestamp()
         };
+        
+        await setDoc(doc(db, 'players', userId), playerData);
+        
+        // Update player position for map display
+        await setDoc(doc(db, 'playerPositions', userId), {
+            position: gameState.player.position,
+            name: gameState.player.name,
+            color: gameState.player.color,
+            level: gameState.player.level,
+            prestigeLevel: gameState.player.prestigeLevel,
+            house: gameState.player.house,
+            lastUpdate: serverTimestamp()
+        });
+        
+        gameState.lastSaveTime = Date.now();
+        console.log("Game saved to cloud successfully");
+    } catch (error) {
+        console.error('Cloud save failed:', error);
+    }
+}
 
-        let app, auth, db, userId;
+// Update the completeGameInitialization function to ensure loading screen is hidden
+function completeGameInitialization() {
+    console.log("Completing game initialization...");
+    
+    gameState.gameInitialized = true;
+    
+    // Hide loading screen
+    const loadingScreen = document.getElementById('loadingScreen');
+    if (loadingScreen) {
+        console.log("Hiding loading screen");
+        loadingScreen.style.display = 'none';
+    }
+    
+    // Initialize map
+    console.log("Initializing map...");
+    initializeMap();
+    
+    // Start game loop
+    console.log("Starting game loop...");
+    startGameLoop();
+    
+    // Initial UI update
+    console.log("Updating UI...");
+    updateUI();
+    renderMap();
+    
+    // Save initial state
+    saveGame();
+    
+    showNotification(`Welcome to Arrakis, ${gameState.player.name}!`, 'success', 6000);
+    showQuotePopup('"The beginning is a very delicate time..."');
+    
+    console.log("Game initialization complete!");
+}
+
+// Update house selection to save to localStorage
+function selectHouse(houseId) {
+    const house = STATIC_DATA.HOUSES[houseId];
+    gameState.player.house = houseId;
+    
+    // Save to localStorage
+    localStorage.setItem('arrakis_player_house', houseId);
+    
+    // Apply starting bonuses
+    if (house.startingBonus.solari) {
+        gameState.resources.solari += house.startingBonus.solari;
+    }
+    if (house.startingBonus.plasteel) {
+        gameState.resources.plasteel += house.startingBonus.plasteel;
+    }
+    if (house.startingBonus.water) {
+        gameState.resources.water += house.startingBonus.water;
+    }
+    if (house.startingBonus.spice) {
+        gameState.resources.spice += house.startingBonus.spice;
+    }
+    if (house.startingBonus.xp) {
+        addExperience(house.startingBonus.xp);
+    }
+    if (house.startingBonus.attack) {
+        gameState.player.attack += house.startingBonus.attack;
+    }
+    
+    showNotification(`Joined ${house.name}! ${house.description}`, 'legendary', 8000);
+    showQuotePopup(`"Welcome to ${house.name}, ${gameState.player.name}. May your enemies know fear."`);
+}
+
+// Update the name confirmation in showNameSelectionModal
+// Replace the confirmBtn click handler with this:
+confirmBtn.addEventListener('click', async () => {
+    const name = nameInput.value.trim();
+    if (name.length >= 2) {
+        gameState.player.name = name;
+        gameState.player.color = selectedColor;
+        
+        // Save to localStorage immediately
+        localStorage.setItem('arrakis_player_name', name);
+        localStorage.setItem('arrakis_player_color', selectedColor);
+        
+        document.body.removeChild(modal);
+        showHouseSelection();
+    }
+});
 
         // === GAME CONSTANTS ===
         const CONFIG = {
