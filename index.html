@@ -64,17 +64,19 @@
                 { id: 'harvester', name: 'Harvester', cost: { solari: 150, food: 3 }, count: 0, stats: { spiceGather: 3 }, upkeep: { food: 1 }, description: "Gathers spice from the desert." }
             ],
             map: {
-                width: 10,
-                height: 10,
+                width: 500,
+                height: 500,
+                chunkSize: 25,
                 visibleRadius: 2,
                 explored: {},
+                chunks: {},
                 locations: [
-                    { x: 2, y: 2, type: 'settlement', name: 'Sietch Tabr', description: 'A hidden Fremen community', friendly: true },
-                    { x: 7, y: 3, type: 'ruins', name: 'Ancient Outpost', description: 'Ruins of an old outpost', loot: true },
-                    { x: 4, y: 8, type: 'oasis', name: 'Hidden Spring', description: 'A rare water source in the desert', resource: 'water' }
+                    { x: 100, y: 100, type: 'settlement', name: 'Sietch Tabr', description: 'A hidden Fremen community', friendly: true },
+                    { x: 350, y: 150, type: 'ruins', name: 'Ancient Outpost', description: 'Ruins of an old outpost', loot: true },
+                    { x: 200, y: 400, type: 'oasis', name: 'Hidden Spring', description: 'A rare water source in the desert', resource: 'water' }
                 ],
                 enemies: [],
-                features: generateInitialMapFeatures()
+                features: {}
             },
             quests: [
                 { 
@@ -465,7 +467,96 @@
             
             // Generate some random enemies on the map
             generateRandomEnemies(3);
+
+            generateInitialMap();
         }
+
+        function generateInitialMap() {
+            for (let x = 0; x < gameData.map.width; x++) {
+                for (let y = 0; y < gameData.map.height; y++) {
+                    const biome = determineBiome(x, y);
+                    setTerrain(x, y, biome);
+                }
+            }
+        }
+
+        function determineBiome(x, y) {
+            const desertThreshold = 0.7;
+            const oasisThreshold = 0.1;
+            const rockyThreshold = 0.85;
+            const spiceThreshold = 0.6;
+
+            let noiseValue = improvedNoise(x / 50, y / 50, 0);
+
+            if (noiseValue < oasisThreshold) {
+                return 'oasis';
+            } else if (noiseValue > spiceThreshold && noiseValue <= desertThreshold) {
+                return 'spice_fields';
+            } else if (noiseValue > rockyThreshold) {
+                return 'rocky';
+            } else {
+                return 'desert';
+            }
+        }
+
+        function setTerrain(x, y, biome) {
+            const key = `${x},${y}`;
+            if (!gameData.map.features) {
+                gameData.map.features = {};
+            }
+            gameData.map.features[key] = biome;
+        }
+
+        function improvedNoise(x, y, z) {
+            let X = Math.floor(x) & 255,                  // FIND UNIT CUBE THAT
+                Y = Math.floor(y) & 255,                  // CONTAINS POINT.
+                Z = Math.floor(z) & 255;
+            x -= Math.floor(x);                                // FIND RELATIVE X,Y,Z
+            y -= Math.floor(y);                                // OF POINT WITHIN CUBE.
+            z -= Math.floor(z);
+            let u = fade(x),                                // COMPUTE FADE CURVES
+                v = fade(y),                                // FOR EACH OF X,Y,Z.
+                w = fade(z);
+            let A = p[X] + Y, AA = p[A] + Z, AB = p[A + 1] + Z,      // HASH COORDINATES OF
+                B = p[X + 1] + Y, BA = p[B] + Z, BB = p[B + 1] + Z;      // THE 8 CUBE CORNERS,
+
+            return lerp(w, lerp(v, lerp(u, grad(p[AA], x, y, z),        // AND ADD
+                grad(p[BA], x - 1, y, z)),     // BLENDED
+                lerp(u, grad(p[AB], x, y - 1, z),        // RESULTS
+                    grad(p[BB], x - 1, y - 1, z))),   // FROM  8 CUBIC CORNERS
+                lerp(v, lerp(u, grad(p[AA + 1], x, y, z - 1),
+                    grad(p[BA + 1], x - 1, y, z - 1)),
+                    lerp(u, grad(p[AB + 1], x, y - 1, z - 1),
+                        grad(p[BB + 1], x - 1, y - 1, z - 1))));
+        }
+
+        function fade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+
+        function lerp(t, a, b) { return a + t * (b - a); }
+
+        function grad(hash, x, y, z) {
+            let h = hash & 15;                                    // CONVERT LO 4 BITS OF HASH CODE
+            let u = h < 8 ? x : y,                               // INTO 12 GRADIENT DIRECTIONS.
+                v = h < 4 ? y : h == 12 || h == 14 ? x : z;
+            return ((h & 1) == 0 ? u : -u) + ((h & 2) == 0 ? v : -v);
+        }
+
+        const p = [151, 160, 137, 91, 90, 15,
+            131, 13, 201, 95, 96, 53, 194, 233, 7, 225, 104,
+            108, 103, 170, 36, 163, 124, 57, 9, 235, 19, 111,
+            52, 101, 12, 3, 10, 43, 31, 185, 139, 107, 116,
+            209, 238, 27, 147, 153, 128, 105, 204, 123, 48,
+            125, 87, 76, 173, 26, 198, 152, 37, 23, 222, 190,
+            85, 164, 66, 239, 253, 8, 133, 24, 138, 250, 70,
+            191, 167, 98, 162, 249, 114, 241, 224, 56, 102,
+            112, 255, 255, 96, 108, 226, 199, 183, 133, 119,
+            119, 169, 155, 155, 240, 182, 182, 41, 251, 188,
+            109, 181, 151, 151, 31, 223, 174, 174, 230, 71,
+            171, 171, 221, 164, 164, 5, 208, 208, 163, 163,
+            170, 170, 159, 159, 107, 107, 40, 40, 128, 128,
+            215, 215, 126, 126, 187, 187, 218, 218, 130, 130,
+            202, 202, 211, 211, 16, 16, 247, 247, 18, 18
+        ];
 
         function markAreaAsExplored(x, y) {
             const key = `${x},${y}`;
@@ -1339,62 +1430,67 @@
             const mapWidth = gameData.map.width;
             const mapHeight = gameData.map.height;
             const playerPos = gameData.character.position;
-            
+            const chunkSize = gameData.map.chunkSize;
+
+            // Calculate visible chunk range
+            const playerChunkX = Math.floor(playerPos.x / chunkSize);
+            const playerChunkY = Math.floor(playerPos.y / chunkSize);
+            const renderDistance = 3; // Render chunks within this distance
+
             // Create grid
             const grid = document.createElement('div');
-            grid.className = 'grid grid-cols-10 gap-1';
-            
-            for (let y = 0; y < mapHeight; y++) {
-                for (let x = 0; x < mapWidth; x++) {
-                    const cell = document.createElement('div');
-                    const key = `${x},${y}`;
-                    const isExplored = gameData.map.explored[key];
-                    const isPlayerPosition = x === playerPos.x && y === playerPos.y;
-                    
-                    cell.className = 'w-8 h-8 flex items-center justify-center text-xs font-bold rounded';
-                    
-                    if (isPlayerPosition) {
-                        cell.className += ' bg-amber-600 text-white';
-                        cell.innerHTML = '👤';
-                    } else if (isExplored) {
-                        // Check if there's a location here
-                        const location = gameData.map.locations.find(loc => loc.x === x && loc.y === y);
-                        if (location) {
-                            switch(location.type) {
-                                case 'settlement':
-                                    cell.className += ' bg-green-700 text-white';
-                                    cell.innerHTML = '🏠';
-                                    break;
-                                case 'ruins':
-                                    cell.className += ' bg-stone-600 text-white';
-                                    cell.innerHTML = '🏛️';
-                                    break;
-                                case 'oasis':
-                                    cell.className += ' bg-sky-700 text-white';
-                                    cell.innerHTML = '💧';
-                                    break;
-                                default:
-                                    cell.className += ' bg-amber-800 text-amber-200';
-                            }
-                        } else {
-                            // Check if there's an enemy here
-                            const enemy = gameData.map.enemies.find(e => e.position.x === x && e.position.y === y);
-                            if (enemy) {
-                                cell.className += ' bg-red-700 text-white';
-                                cell.innerHTML = '⚔️';
-                            } else {
-                                cell.className += ' bg-amber-800 text-amber-200';
-                            }
-                        }
-                    } else {
-                        cell.className += ' bg-stone-900 text-stone-700';
-                        cell.innerHTML = '?';
+            grid.className = 'grid';
+            grid.style.gridTemplateColumns = `repeat(${chunkSize}, 1fr)`;
+            grid.style.width = `${chunkSize * 16}px`; // Adjust size as needed
+
+            for (let chunkY = playerChunkY - renderDistance; chunkY <= playerChunkY + renderDistance; chunkY++) {
+                for (let chunkX = playerChunkX - renderDistance; chunkX <= playerChunkX + renderDistance; chunkX++) {
+                    // Check if chunk is within map bounds
+                    if (chunkX < 0 || chunkX >= mapWidth / chunkSize || chunkY < 0 || chunkY >= mapHeight / chunkSize) {
+                        continue;
                     }
-                    
-                    grid.appendChild(cell);
+
+                    // Render each tile within the chunk
+                    for (let y = chunkY * chunkSize; y < (chunkY + 1) * chunkSize; y++) {
+                        for (let x = chunkX * chunkSize; x < (chunkX + 1) * chunkSize; x++) {
+                            const cell = document.createElement('div');
+                            const key = `${x},${y}`;
+                            const isExplored = gameData.map.explored[key];
+                            const isPlayerPosition = x === playerPos.x && y === playerPos.y;
+
+                            cell.className = 'w-4 h-4 flex items-center justify-center text-xs font-bold rounded';
+
+                            if (isPlayerPosition) {
+                                cell.className += ' bg-amber-600 text-white';
+                                cell.innerHTML = '👤';
+                            } else if (isExplored) {
+                                const biome = gameData.map.features[key];
+                                switch (biome) {
+                                    case 'oasis':
+                                        cell.className += ' bg-sky-700 text-white';
+                                        cell.innerHTML = '💧';
+                                        break;
+                                    case 'spice_fields':
+                                        cell.className += ' bg-amber-700 text-white';
+                                        cell.innerHTML = '✨';
+                                        break;
+                                    case 'rocky':
+                                        cell.className += ' bg-stone-600 text-white';
+                                        cell.innerHTML = '⛰️';
+                                        break;
+                                    default:
+                                        cell.className += ' bg-amber-800 text-amber-200';
+                                        break;
+                                }
+                            } else {
+                                cell.className += ' bg-stone-900 text-stone-700';
+                                cell.innerHTML = '?';
+                            }
+                            grid.appendChild(cell);
+                        }
+                    }
                 }
             }
-            
             mapContainer.appendChild(grid);
         }
 
