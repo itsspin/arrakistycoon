@@ -330,7 +330,7 @@ async function loadGame() {
         showNameSelectionModal();
     }
 }
-
+        
 // Add this new function for offline mode
 function startOfflineMode() {
     console.log("Starting offline mode...");
@@ -750,27 +750,66 @@ confirmBtn.addEventListener('click', async () => {
         };
 
         // === FIREBASE FUNCTIONS ===
-        async function initializeFirebase() {
-            try {
-                app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
-                db = getFirestore(app);
+let firebaseInitialized = false;
+let initializationTimeout;
 
-                onAuthStateChanged(auth, (user) => {
-                    if (user) {
-                        userId = user.uid;
-                        gameState.player.id = userId;
-                        loadGame();
-                        startMultiplayerSync();
-                    } else {
-                        signInAnonymously(auth);
-                    }
-                });
-            } catch (error) {
-                console.error("Firebase initialization failed:", error);
-                showNotification("Failed to connect to game servers. Playing offline.", 'error');
-            }
+async function initializeFirebase() {
+    console.log("Starting Firebase initialization...");
+    
+    // Set a timeout to fallback to offline mode
+    initializationTimeout = setTimeout(() => {
+        if (!firebaseInitialized) {
+            console.warn("Firebase initialization timed out, starting offline mode");
+            showNotification("Connection timeout. Starting in offline mode.", 'warning');
+            startOfflineMode();
         }
+    }, 10000); // 10 second timeout
+    
+    try {
+        console.log("Initializing Firebase app...");
+        app = initializeApp(firebaseConfig);
+        
+        console.log("Getting Auth instance...");
+        auth = getAuth(app);
+        
+        console.log("Getting Firestore instance...");
+        db = getFirestore(app);
+        
+        console.log("Setting up auth state listener...");
+        onAuthStateChanged(auth, (user) => {
+            console.log("Auth state changed:", user ? "User found" : "No user");
+            
+            clearTimeout(initializationTimeout);
+            firebaseInitialized = true;
+            
+            if (user) {
+                console.log("User authenticated:", user.uid);
+                userId = user.uid;
+                gameState.player.id = userId;
+                loadGame();
+                startMultiplayerSync();
+            } else {
+                console.log("No user, signing in anonymously...");
+                signInAnonymously(auth).catch((error) => {
+                    console.error("Anonymous sign in failed:", error);
+                    showNotification("Authentication failed. Starting offline mode.", 'error');
+                    startOfflineMode();
+                });
+            }
+        }, (error) => {
+            console.error("Auth state change error:", error);
+            clearTimeout(initializationTimeout);
+            showNotification("Authentication error. Starting offline mode.", 'error');
+            startOfflineMode();
+        });
+        
+    } catch (error) {
+        console.error("Firebase initialization failed:", error);
+        clearTimeout(initializationTimeout);
+        showNotification("Failed to connect to game servers. Starting offline mode.", 'error');
+        startOfflineMode();
+    }
+}
 
         async function saveGame() {
             if (!db || !userId) return;
