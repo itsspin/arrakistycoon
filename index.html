@@ -216,6 +216,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, query, orderBy, limit, updateDoc, increment, arrayUnion, serverTimestamp, addDoc, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+console.log("🔥 Script started!");
 
 // REPLACE THIS WITH YOUR FIREBASE CONFIG
 const firebaseConfig = {
@@ -248,52 +249,202 @@ let firebaseInitialized = false;
 let initializationTimeout;
 
 // === FIREBASE FUNCTIONS ===
+let app, auth, db, userId;
+
+// === FIREBASE FUNCTIONS ===
 async function initializeFirebase() {
-    console.log("Starting Firebase initialization...");
+    console.log("🚀 Starting Firebase test...");
     
     try {
-        console.log("Initializing Firebase app...");
+        // Test 1: Can we create the Firebase app?
+        console.log("📱 Creating Firebase app...");
         app = initializeApp(firebaseConfig);
+        console.log("✅ Firebase app created successfully");
         
-        console.log("Getting Auth instance...");
+        // Test 2: Can we get auth?
+        console.log("🔐 Getting auth...");
         auth = getAuth(app);
+        console.log("✅ Auth retrieved successfully");
         
-        console.log("Getting Firestore instance...");
+        // Test 3: Can we get firestore?
+        console.log("💾 Getting Firestore...");
         db = getFirestore(app);
+        console.log("✅ Firestore retrieved successfully");
         
-        console.log("Setting up auth state listener...");
-        onAuthStateChanged(auth, (user) => {
-            console.log("Auth state changed:", user ? "User found" : "No user");
-            
-            if (user) {
-                console.log("User authenticated:", user.uid);
-                userId = user.uid;
-                gameState.player.id = userId;
-                loadGame();
-                startMultiplayerSync();
-            } else {
-                console.log("No user, signing in anonymously...");
-                signInAnonymously(auth).catch((error) => {
-                    console.error("Anonymous sign in failed:", error);
-                    showNotification("Authentication failed. Check console for details.", 'error');
-                    // Hide loading screen on error
-                    const loadingScreen = document.getElementById('loadingScreen');
-                    if (loadingScreen) {
-                        loadingScreen.style.display = 'none';
-                    }
-                });
+        // Test 4: Force hide loading screen after 3 seconds
+        setTimeout(() => {
+            console.log("⏰ 3 seconds passed - hiding loading screen");
+            const loadingScreen = document.getElementById('loadingScreen');
+            if (loadingScreen) {
+                loadingScreen.style.display = 'none';
+                showNotification("Debug: Loading screen hidden after 3 seconds", 'info');
             }
-        });
+        }, 3000);
+        
+        // Test 5: Try authentication
+        console.log("🔑 Attempting anonymous sign in...");
+        const userCredential = await signInAnonymously(auth);
+        console.log("✅ Anonymous sign in successful:", userCredential.user.uid);
+        
+        // If we get here, Firebase is working
+        userId = userCredential.user.uid;
+        gameState.player.id = userId;
+        showNameSelectionModal();
         
     } catch (error) {
-        console.error("Firebase initialization failed:", error);
-        showNotification("Failed to connect to game servers. Check console for details.", 'error');
+        console.error("❌ Firebase test failed:", error);
+        console.error("Error details:", error.code, error.message);
+        
         // Hide loading screen on error
         const loadingScreen = document.getElementById('loadingScreen');
         if (loadingScreen) {
             loadingScreen.style.display = 'none';
         }
+        
+        showNotification(`Firebase Error: ${error.code} - ${error.message}`, 'error', 10000);
     }
+}
+
+async function saveGame() {
+    if (!db || !userId) return;
+    
+    try {
+        const playerData = {
+            ...gameState.player,
+            resources: gameState.resources,
+            equipment: gameState.equipment,
+            inventory: gameState.inventory,
+            buildings: gameState.buildings,
+            lastSave: serverTimestamp(),
+            lastActive: serverTimestamp()
+        };
+        
+        await setDoc(doc(db, 'players', userId), playerData);
+        
+        // Update player position for map display
+        await setDoc(doc(db, 'playerPositions', userId), {
+            position: gameState.player.position,
+            name: gameState.player.name,
+            color: gameState.player.color,
+            level: gameState.player.level,
+            prestigeLevel: gameState.player.prestigeLevel,
+            house: gameState.player.house,
+            lastUpdate: serverTimestamp()
+        });
+        
+        gameState.lastSaveTime = Date.now();
+    } catch (error) {
+        console.error('Save failed:', error);
+    }
+}
+
+async function loadGame() {
+    if (!db || !userId) return;
+    
+    try {
+        const docRef = doc(db, 'players', userId);
+        const docSnap = await getDoc(docRef);
+        
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            Object.assign(gameState.player, data);
+            gameState.resources = data.resources || gameState.resources;
+            gameState.equipment = data.equipment || gameState.equipment;
+            gameState.inventory = data.inventory || gameState.inventory;
+            gameState.buildings = data.buildings || gameState.buildings;
+            
+            if (!gameState.player.name) {
+                showNameSelectionModal();
+            } else {
+                completeGameInitialization();
+            }
+        } else {
+            showNameSelectionModal();
+        }
+    } catch (error) {
+        console.error('Load failed:', error);
+        showNameSelectionModal();
+    }
+}
+
+async function startMultiplayerSync() {
+    // Listen for other players
+    const playersQuery = query(collection(db, 'playerPositions'), orderBy('lastUpdate', 'desc'), limit(50));
+    onSnapshot(playersQuery, (snapshot) => {
+        gameState.onlinePlayers = {};
+        snapshot.forEach((doc) => {
+            if (doc.id !== userId) {
+                gameState.onlinePlayers[doc.id] = doc.data();
+            }
+        });
+        updateOnlinePlayersDisplay();
+        renderMap();
+    });
+
+    // Listen for world chat
+    const chatQuery = query(collection(db, 'worldChat'), orderBy('timestamp', 'desc'), limit(50));
+    onSnapshot(chatQuery, (snapshot) => {
+        const messages = [];
+        snapshot.forEach((doc) => {
+            messages.unshift(doc.data());
+        });
+        updateWorldChat(messages);
+    });
+
+    // Listen for world events
+    const eventsQuery = query(collection(db, 'worldEvents'), where('endTime', '>', new Date()));
+    onSnapshot(eventsQuery, (snapshot) => {
+        gameState.worldEvents = [];
+        snapshot.forEach((doc) => {
+            gameState.worldEvents.push({ id: doc.id, ...doc.data() });
+        });
+        updateWorldEventsDisplay();
+        renderMap();
+    });
+
+    // Listen for trade offers
+    const tradesQuery = query(collection(db, 'tradeOffers'), where('status', '==', 'open'));
+    onSnapshot(tradesQuery, (snapshot) => {
+        gameState.tradeOffers = [];
+        snapshot.forEach((doc) => {
+            const trade = { id: doc.id, ...doc.data() };
+            if (trade.toPlayerId === userId || trade.fromPlayerId === userId) {
+                gameState.tradeOffers.push(trade);
+            }
+        });
+        updateTradeOffersDisplay();
+    });
+}
+
+function completeGameInitialization() {
+    console.log("🎮 Completing game initialization...");
+    
+    gameState.gameInitialized = true;
+    
+    // Hide loading screen
+    const loadingScreen = document.getElementById('loadingScreen');
+    if (loadingScreen) {
+        console.log("✅ Hiding loading screen");
+        loadingScreen.style.display = 'none';
+    } else {
+        console.log("❌ Loading screen element not found!");
+    }
+    
+    // Initialize map
+    initializeMap();
+    
+    // Start game loop
+    startGameLoop();
+    
+    // Initial UI update
+    updateUI();
+    renderMap();
+    
+    // Save initial state
+    saveGame();
+    
+    showNotification(`Welcome to Arrakis, ${gameState.player.name}!`, 'success', 6000);
+    showQuotePopup('"The beginning is a very delicate time..."');
 }
 
 async function loadGame() {
