@@ -219,13 +219,29 @@ import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, query, order
 
 // REPLACE THIS WITH YOUR FIREBASE CONFIG
 const firebaseConfig = {
-    apiKey: "AIzaSyB7Zz3fxQtfSuk3tuc2UimeVNoX7M_5sIk",
-    authDomain: "arrakis-spice-empire.firebaseapp.com",
-    projectId: "arrakis-spice-empire",
-    storageBucket: "arrakis-spice-empire.firebasestorage.app",
-    messagingSenderId: "685304270859",
-    appId: "1:685304270859:web:2d20f753db72a2de61f70e"
+
+  apiKey: "AIzaSyB7Zz3fxQtfSuk3tuc2UimeVNoX7M_5sIk",
+
+  authDomain: "arrakis-spice-empire.firebaseapp.com",
+
+  projectId: "arrakis-spice-empire",
+
+  storageBucket: "arrakis-spice-empire.firebasestorage.app",
+
+  messagingSenderId: "685304270859",
+
+  appId: "1:685304270859:web:2d20f753db72a2de61f70e",
+
+  measurementId: "G-WT0CXBJ7XW"
+
 };
+
+
+// Initialize Firebase
+
+const app = initializeApp(firebaseConfig);
+
+const analytics = getAnalytics(app);
 
 let app, auth, db, userId;
 let firebaseInitialized = false;
