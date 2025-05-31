@@ -123,10 +123,12 @@
             lastUpdated: null,
             gameInitialized: false,
             currentTab: 'game',
+            // New multiplayer features
             players: {},
             worldEvents: {},
             chatMessages: [],
-            guilds: {}
+            guilds: {},
+            playerId: null
         };
 
         // Enemy types for random encounters
@@ -144,6 +146,202 @@
             { id: 'crysknife', name: 'Crysknife', type: 'weapon', stats: { attack: 15 }, description: 'Sacred Fremen weapon made from a sandworm tooth.' }
         ];
 
+        // Enhanced RNG system
+        function enhancedRandom(baseChance, playerLevel = 1, luckModifier = 0) {
+            const levelBonus = Math.min(playerLevel * 0.01, 0.1); // Max 10% bonus
+            const finalChance = Math.min(baseChance + levelBonus + luckModifier, 0.95); // Cap at 95%
+            return Math.random() < finalChance;
+        }
+
+        // World Events System
+        const worldEventTypes = [
+            {
+                id: 'spice_storm',
+                name: 'Great Spice Storm',
+                description: 'A massive spice storm sweeps across Arrakis, revealing hidden deposits!',
+                cooldown: 300000, // 5 minutes
+                effect: () => {
+                    const bonus = Math.floor(Math.random() * 50) + 25;
+                    gameData.resources.spice += bonus;
+                    addLog(`The spice storm grants you ${bonus} spice!`, "event");
+                }
+            },
+            {
+                id: 'water_discovery',
+                name: 'Hidden Water Cache',
+                description: 'Ancient water reserves are discovered beneath the sand!',
+                cooldown: 240000, // 4 minutes
+                effect: () => {
+                    const bonus = Math.floor(Math.random() * 30) + 15;
+                    gameData.resources.water += bonus;
+                    addLog(`You discover ${bonus} units of precious water!`, "event");
+                }
+            },
+            {
+                id: 'sandworm_migration',
+                name: 'Sandworm Migration',
+                description: 'The great sandworms are migrating, leaving behind valuable materials!',
+                cooldown: 600000, // 10 minutes
+                effect: () => {
+                    const materials = ['plasteel', 'spice'];
+                    const material = materials[Math.floor(Math.random() * materials.length)];
+                    const bonus = Math.floor(Math.random() * 20) + 10;
+                    gameData.resources[material] += bonus;
+                    addLog(`Sandworm migration leaves behind ${bonus} ${material}!`, "event");
+                }
+            }
+        ];
+
+        // Initialize player ID
+        function initializePlayer() {
+            if (!gameData.playerId) {
+                gameData.playerId = 'player_' + Math.random().toString(36).substr(2, 9);
+            }
+        }
+
+        // World Events Management
+        function checkWorldEvents() {
+            const now = Date.now();
+            worldEventTypes.forEach(eventType => {
+                const lastTriggered = gameData.worldEvents[eventType.id] || 0;
+                if (now - lastTriggered > eventType.cooldown) {
+                    if (Math.random() < 0.1) { // 10% chance per check
+                        gameData.worldEvents[eventType.id] = now;
+                        eventType.effect();
+                        broadcastWorldEvent(eventType);
+                    }
+                }
+            });
+        }
+
+        function broadcastWorldEvent(eventType) {
+            addLog(`🌍 WORLD EVENT: ${eventType.name} - ${eventType.description}`, "event");
+        }
+
+        // Chat System
+        function sendChatMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            if (message) {
+                const chatMessage = {
+                    id: Date.now(),
+                    playerId: gameData.playerId,
+                    playerName: gameData.character.name,
+                    message: message,
+                    timestamp: new Date().toLocaleTimeString()
+                };
+                gameData.chatMessages.push(chatMessage);
+                if (gameData.chatMessages.length > 50) {
+                    gameData.chatMessages.shift();
+                }
+                input.value = '';
+                updateChatDisplay();
+            }
+        }
+        window.sendChatMessage = sendChatMessage;
+
+        function updateChatDisplay() {
+            const chatContainer = document.getElementById('chatMessages');
+            if (!chatContainer) return;
+            
+            chatContainer.innerHTML = '';
+            gameData.chatMessages.slice(-20).forEach(msg => {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'text-sm mb-1';
+                messageDiv.innerHTML = `
+                    <span class="text-xs text-stone-500">[${msg.timestamp}]</span>
+                    <span class="text-amber-400 font-semibold">${msg.playerName}:</span>
+                    <span class="text-stone-300">${msg.message}</span>
+                `;
+                chatContainer.appendChild(messageDiv);
+            });
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // Guild System
+        function createGuild() {
+            const guildName = document.getElementById('guildNameInput').value.trim();
+            if (!guildName) {
+                addLog("Please enter a guild name.", "error");
+                return;
+            }
+            
+            const guildId = 'guild_' + Math.random().toString(36).substr(2, 9);
+            gameData.guilds[guildId] = {
+                id: guildId,
+                name: guildName,
+                leader: gameData.playerId,
+                members: [gameData.playerId],
+                resources: { spice: 0, water: 0, solari: 0 },
+                level: 1,
+                created: Date.now()
+            };
+            
+            gameData.character.guildId = guildId;
+            addLog(`Guild "${guildName}" created successfully!`, "success");
+            updateGuildDisplay();
+        }
+        window.createGuild = createGuild;
+
+        function updateGuildDisplay() {
+            const guildContainer = document.getElementById('guildInfo');
+            if (!guildContainer) return;
+            
+            if (gameData.character.guildId) {
+                const guild = gameData.guilds[gameData.character.guildId];
+                if (guild) {
+                    guildContainer.innerHTML = `
+                        <div class="bg-stone-700 p-4 rounded-lg">
+                            <h3 class="text-lg font-semibold text-amber-400 mb-2">${guild.name}</h3>
+                            <p class="text-sm text-stone-300">Level: ${guild.level}</p>
+                            <p class="text-sm text-stone-300">Members: ${guild.members.length}</p>
+                            <p class="text-sm text-stone-300">Resources: ${guild.resources.spice} Spice, ${guild.resources.water} Water</p>
+                        </div>
+                    `;
+                }
+            } else {
+                guildContainer.innerHTML = `
+                    <div class="bg-stone-700 p-4 rounded-lg">
+                        <h3 class="text-lg font-semibold text-amber-400 mb-2">Create Guild</h3>
+                        <input type="text" id="guildNameInput" placeholder="Guild Name" class="w-full bg-stone-600 text-white p-2 rounded mb-2">
+                        <button onclick="createGuild()" class="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded">Create Guild</button>
+                    </div>
+                `;
+            }
+        }
+
+        // Player Tracker
+        function updatePlayerTracker() {
+            const trackerContainer = document.getElementById('playerTracker');
+            if (!trackerContainer) return;
+            
+            // Simulate other players for demo
+            const nearbyPlayers = [
+                { name: 'Paul Atreides', level: 15, distance: '2.3 km', house: 'Atreides' },
+                { name: 'Chani', level: 22, distance: '5.7 km', house: 'Fremen' },
+                { name: 'Duncan Idaho', level: 18, distance: '8.1 km', house: 'Atreides' }
+            ];
+            
+            trackerContainer.innerHTML = '';
+            nearbyPlayers.forEach(player => {
+                const playerDiv = document.createElement('div');
+                playerDiv.className = 'bg-stone-700 p-3 rounded-md mb-2';
+                playerDiv.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <p class="text-amber-300 font-semibold">${player.name}</p>
+                            <p class="text-xs text-stone-400">Level ${player.level} • ${player.house}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-sm text-stone-300">${player.distance}</p>
+                            <button class="text-xs bg-sky-600 hover:bg-sky-700 text-white px-2 py-1 rounded">Track</button>
+                        </div>
+                    </div>
+                `;
+                trackerContainer.appendChild(playerDiv);
+            });
+        }
+
         // Game Logic Functions
         function saveGame() {
             if (gameData.gameInitialized) {
@@ -160,6 +358,7 @@
                 if (!gameData.gameInitialized) {
                     showCharacterCreator();
                 } else {
+                    initializePlayer();
                     startGameLoop();
                     updateUI();
                     generateMapView();
@@ -230,6 +429,7 @@
 
             // Initialize map exploration
             initializeMap();
+            initializePlayer();
 
             gameData.gameInitialized = true;
             document.getElementById('characterCreatorScreen').classList.add('hidden');
@@ -254,7 +454,7 @@
             
             // Explore visible radius around starting position
             for (let x = pos.x - gameData.map.visibleRadius; x <= pos.x + gameData.map.visibleRadius; x++) {
-                for (let y = pos.y - gameData.map.visibleRadius; y <= pos.y - gameData.map.visibleRadius; y++) {
+                for (let y = pos.y - gameData.map.visibleRadius; y <= pos.y + gameData.map.visibleRadius; y++) {
                     if (x >= 0 && x < gameData.map.width && y >= 0 && y < gameData.map.height) {
                         markAreaAsExplored(x, y);
                     }
@@ -339,8 +539,11 @@
                 }
             }
             
-            // Random events
-            if (Math.random() < 0.01) { 
+            // Check world events
+            checkWorldEvents();
+            
+            // Random events with enhanced RNG
+            if (enhancedRandom(0.01, gameData.character.level)) { 
                 const events = [
                     { msg: "A small tremor reveals a pocket of Spice!", spice: 10 + (5 * gameData.harvesters.spice_harvester_auto_level), type: "event" },
                     { msg: "A minor sandstorm kicks up. Visibility low.", type: "lore" },
@@ -877,7 +1080,7 @@
                     gameData.map.enemies.splice(enemyIndex, 1);
                 }
                 
-                // Generate loot
+                // Generate loot with enhanced RNG
                 const enemy = gameData.combat.enemy;
                 if (enemy.loot) {
                     // Guaranteed solari
@@ -887,10 +1090,10 @@
                         addLog(`Looted ${solariAmount} Solari.`, "success");
                     }
                     
-                    // Chance-based resources
+                    // Chance-based resources with enhanced RNG
                     if (enemy.loot.chance) {
                         for (const [resource, chance] of Object.entries(enemy.loot.chance)) {
-                            if (Math.random() < chance) {
+                            if (enhancedRandom(chance, gameData.character.level)) {
                                 if (resource === 'sandworm_tooth') {
                                     // Special item
                                     const existingItem = gameData.inventory.find(item => item.id === 'sandworm_tooth');
@@ -1209,6 +1412,15 @@
             document.getElementById('plasteelDisplay').textContent = Math.floor(gameData.resources.plasteel);
             document.getElementById('foodDisplay').textContent = Math.floor(gameData.resources.food);
 
+            // Update main health display
+            const healthDisplayMain = document.getElementById('healthDisplayMain');
+            const healthBarFillMain = document.getElementById('healthBarFillMain');
+            if (healthDisplayMain && healthBarFillMain) {
+                healthDisplayMain.textContent = `${Math.floor(gameData.character.health)} / ${gameData.character.maxHealth}`;
+                const healthPercentage = (gameData.character.health / gameData.character.maxHealth) * 100;
+                healthBarFillMain.style.width = `${healthPercentage}%`;
+            }
+
             // Update character info
             document.getElementById('characterNameDisplay').textContent = gameData.character.name;
             document.getElementById('characterHouseDisplay').textContent = gameData.character.house || "N/A";
@@ -1348,6 +1560,11 @@
                     `;
                 });
             }
+
+            // Update multiplayer features
+            updateChatDisplay();
+            updateGuildDisplay();
+            updatePlayerTracker();
         }
 
         function switchTab(tabName) {
@@ -1370,7 +1587,7 @@
                 buttonElement.classList.remove('bg-stone-700', 'text-amber-300');
             }
 
-            if (['crafting', 'inventory', 'upgrades', 'character', 'buildings', 'map', 'quests', 'units'].includes(tabName)) {
+            if (['crafting', 'inventory', 'upgrades', 'character', 'buildings', 'map', 'quests', 'units', 'multiplayer'].includes(tabName)) {
                  updateUI(); 
             }
 
@@ -1401,6 +1618,12 @@
         ::-webkit-scrollbar-track { background: #403126; border-radius: 4px;}
         ::-webkit-scrollbar-thumb { background: #854d0e; border-radius: 4px;}
         ::-webkit-scrollbar-thumb:hover { background: #a16207; }
+        @media (max-width: 768px) {
+            .container { padding: 0.5rem; }
+            .grid { gap: 0.5rem; }
+            .text-3xl { font-size: 1.5rem; }
+            .text-4xl { font-size: 2rem; }
+        }
     </style>
 </head>
 <body class="bg-stone-900 text-amber-50 antialiased">
@@ -1451,16 +1674,17 @@
                 <div class="text-xs text-stone-400">The spice must flow...</div>
             </div>
              <nav class="mt-4 flex flex-wrap justify-center sm:justify-start space-x-1 sm:space-x-2">
-                <button onclick="switchTab('game')" class="tab-button py-2 px-3 sm:px-4 rounded-t-md text-sm font-medium">Game</button>
-                <button onclick="switchTab('character')" class="tab-button py-2 px-3 sm:px-4 rounded-t-md text-sm font-medium">Character</button>
-                <button onclick="switchTab('upgrades')" class="tab-button py-2 px-3 sm:px-4 rounded-t-md text-sm font-medium">Upgrades</button>
-                <button onclick="switchTab('buildings')" class="tab-button py-2 px-3 sm:px-4 rounded-t-md text-sm font-medium">Buildings</button>
-                <button onclick="switchTab('units')" class="tab-button py-2 px-3 sm:px-4 rounded-t-md text-sm font-medium">Units</button>
-                <button onclick="switchTab('map')" class="tab-button py-2 px-3 sm:px-4 rounded-t-md text-sm font-medium">Map</button>
-                <button onclick="switchTab('quests')" class="tab-button py-2 px-3 sm:px-4 rounded-t-md text-sm font-medium">Quests</button>
-                <button onclick="switchTab('crafting')" class="tab-button py-2 px-3 sm:px-4 rounded-t-md text-sm font-medium">Crafting</button>
-                <button onclick="switchTab('inventory')" class="tab-button py-2 px-3 sm:px-4 rounded-t-md text-sm font-medium">Inventory</button>
-                <button onclick="switchTab('lore')" class="tab-button py-2 px-3 sm:px-4 rounded-t-md text-sm font-medium">Lore</button>
+                <button onclick="switchTab('game')" class="tab-button py-2 px-2 sm:px-4 rounded-t-md text-xs sm:text-sm font-medium">Game</button>
+                <button onclick="switchTab('character')" class="tab-button py-2 px-2 sm:px-4 rounded-t-md text-xs sm:text-sm font-medium">Character</button>
+                <button onclick="switchTab('upgrades')" class="tab-button py-2 px-2 sm:px-4 rounded-t-md text-xs sm:text-sm font-medium">Upgrades</button>
+                <button onclick="switchTab('buildings')" class="tab-button py-2 px-2 sm:px-4 rounded-t-md text-xs sm:text-sm font-medium">Buildings</button>
+                <button onclick="switchTab('units')" class="tab-button py-2 px-2 sm:px-4 rounded-t-md text-xs sm:text-sm font-medium">Units</button>
+                <button onclick="switchTab('map')" class="tab-button py-2 px-2 sm:px-4 rounded-t-md text-xs sm:text-sm font-medium">Map</button>
+                <button onclick="switchTab('quests')" class="tab-button py-2 px-2 sm:px-4 rounded-t-md text-xs sm:text-sm font-medium">Quests</button>
+                <button onclick="switchTab('crafting')" class="tab-button py-2 px-2 sm:px-4 rounded-t-md text-xs sm:text-sm font-medium">Crafting</button>
+                <button onclick="switchTab('inventory')" class="tab-button py-2 px-2 sm:px-4 rounded-t-md text-xs sm:text-sm font-medium">Inventory</button>
+                <button onclick="switchTab('multiplayer')" class="tab-button py-2 px-2 sm:px-4 rounded-t-md text-xs sm:text-sm font-medium">Multiplayer</button>
+                <button onclick="switchTab('lore')" class="tab-button py-2 px-2 sm:px-4 rounded-t-md text-xs sm:text-sm font-medium">Lore</button>
             </nav>
         </header>
 
@@ -1474,9 +1698,11 @@
                         <p>💰 Solari: <span id="solariDisplay" class="font-bold text-yellow-300">0</span></p>
                         <p>🔩 Plasteel: <span id="plasteelDisplay" class="font-bold text-slate-300">0</span></p>
                         <p>🍖 Food: <span id="foodDisplay" class="font-bold text-orange-300">0</span></p>
-                        <p>❤️ Health: <span id="healthDisplayMain" class="font-bold text-green-300"></span></p>
-                        <div class="w-full progress-bar-bg rounded-full h-2 mt-1">
-                            <div id="healthBarFillMain" class="progress-bar-fill h-2 rounded-full"></div>
+                        <div class="mt-2">
+                            <p>❤️ Health: <span id="healthDisplayMain" class="font-bold text-green-300"></span></p>
+                            <div class="w-full progress-bar-bg rounded-full h-2 mt-1">
+                                <div id="healthBarFillMain" class="progress-bar-fill h-2 rounded-full"></div>
+                            </div>
                         </div>
                     </div>
                     <div class="bg-stone-700 p-4 rounded-lg shadow">
@@ -1555,15 +1781,16 @@
             <h2 class="text-2xl font-orbitron text-amber-500 mb-4">🗺️ Arrakis Map</h2>
             <div id="mapContainer" class="bg-stone-700 p-3 rounded-md shadow">
             </div>
-            <div class="mt-4 flex justify-around">
-                <button onclick="moveCharacter('north')" class="bg-stone-600 hover:bg-stone-700 text-white py-2 px-4 rounded-md">North</button>
-            </div>
-            <div class="flex justify-around mt-2">
-                <button onclick="moveCharacter('west')" class="bg-stone-600 hover:bg-stone-700 text-white py-2 px-4 rounded-md">West</button>
-                <button onclick="moveCharacter('east')" class="bg-stone-600 hover:bg-stone-700 text-white py-2 px-4 rounded-md">East</button>
-            </div>
-            <div class="mt-2 flex justify-around">
-                <button onclick="moveCharacter('south')" class="bg-stone-600 hover:bg-stone-700 text-white py-2 px-4 rounded-md">South</button>
+            <div class="mt-4 grid grid-cols-3 gap-2 max-w-xs mx-auto">
+                <div></div>
+                <button onclick="moveCharacter('north')" class="bg-stone-600 hover:bg-stone-700 text-white py-2 px-4 rounded-md text-sm">North</button>
+                <div></div>
+                <button onclick="moveCharacter('west')" class="bg-stone-600 hover:bg-stone-700 text-white py-2 px-4 rounded-md text-sm">West</button>
+                <div></div>
+                <button onclick="moveCharacter('east')" class="bg-stone-600 hover:bg-stone-700 text-white py-2 px-4 rounded-md text-sm">East</button>
+                <div></div>
+                <button onclick="moveCharacter('south')" class="bg-stone-600 hover:bg-stone-700 text-white py-2 px-4 rounded-md text-sm">South</button>
+                <div></div>
             </div>
         </div>
 
@@ -1582,6 +1809,48 @@
         <div id="inventoryScreen" class="main-tab-content hidden bg-stone-800 p-4 rounded-lg shadow-xl">
             <h2 class="text-2xl font-orbitron text-amber-500 mb-4">🎒 Inventory</h2>
             <div id="inventoryList" class="space-y-3">
+            </div>
+        </div>
+
+        <div id="multiplayerScreen" class="main-tab-content hidden bg-stone-800 p-4 rounded-lg shadow-xl">
+            <h2 class="text-2xl font-orbitron text-amber-500 mb-4">🌐 Multiplayer Hub</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div class="space-y-4">
+                    <div class="bg-stone-700 p-4 rounded-lg shadow">
+                        <h3 class="text-lg font-semibold text-amber-400 mb-2">🗨️ World Chat</h3>
+                        <div id="chatMessages" class="h-48 overflow-y-auto bg-stone-800 p-3 rounded-md border border-stone-600 text-sm mb-2">
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="text" id="chatInput" placeholder="Type your message..." class="flex-1 bg-stone-600 text-white p-2 rounded text-sm" maxlength="100">
+                            <button onclick="sendChatMessage()" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded text-sm">Send</button>
+                        </div>
+                    </div>
+                    <div id="guildInfo" class="bg-stone-700 p-4 rounded-lg shadow">
+                        <h3 class="text-lg font-semibold text-amber-400 mb-2">🏰 Guild</h3>
+                    </div>
+                </div>
+                <div class="space-y-4">
+                    <div class="bg-stone-700 p-4 rounded-lg shadow">
+                        <h3 class="text-lg font-semibold text-amber-400 mb-2">📍 Player Tracker</h3>
+                        <div id="playerTracker" class="space-y-2">
+                        </div>
+                    </div>
+                    <div class="bg-stone-700 p-4 rounded-lg shadow">
+                        <h3 class="text-lg font-semibold text-amber-400 mb-2">🌍 World Events</h3>
+                        <p class="text-sm text-stone-300 mb-2">Global events affect all players on Arrakis</p>
+                        <div class="space-y-2">
+                            <div class="bg-stone-600 p-2 rounded text-xs">
+                                <span class="text-purple-400">⏰ Next Spice Storm:</span> <span class="text-stone-300">4:32</span>
+                            </div>
+                            <div class="bg-stone-600 p-2 rounded text-xs">
+                                <span class="text-sky-400">💧 Water Discovery:</span> <span class="text-stone-300">2:15</span>
+                            </div>
+                            <div class="bg-stone-600 p-2 rounded text-xs">
+                                <span class="text-amber-400">🪱 Sandworm Migration:</span> <span class="text-stone-300">8:45</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -1622,6 +1891,9 @@
                         <div class="w-48 progress-bar-bg rounded-full h-4 mt-1">
                             <div id="combatPlayerHealthBar" class="progress-bar-fill h-4 rounded-full"></div>
                         </div>
+                        <div id="combatInventoryDisplay" class="mt-2">
+                            <p class="text-xs text-stone-400">Inventory available during combat</p>
+                        </div>
                     </div>
                     <div>
                         <h3 id="combatEnemyName" class="text-xl font-semibold text-red-400"></h3>
@@ -1650,7 +1922,7 @@
         </div>
 
         <footer class="text-center mt-8 py-4 border-t border-stone-700">
-            <p class="text-xs text-stone-400">Arrakis Tycoon v1.0 - A fan-made idle game inspired by Frank Herbert's Dune universe.</p>
+            <p class="text-xs text-stone-400">Arrakis Tycoon v2.0 - Enhanced Multiplayer Edition</p>
             <p class="text-xs text-stone-500 mt-1">All Dune intellectual property belongs to the Herbert Estate. This is a non-commercial fan project.</p>
         </footer>
     </div>
