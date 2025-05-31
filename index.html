@@ -1002,3 +1002,447 @@
         uiManager.updateAll();
     }
 }
+
+        // ===== COMBAT SYSTEM =====
+        class CombatSystem {
+            constructor(gameState) {
+                this.gameState = gameState;
+            }
+
+            attack(attacker, defender) {
+                const attackRoll = Math.random() * attacker.attack;
+                const defenseRoll = Math.random() * defender.defense;
+                const damage = Math.max(0, Math.floor(attackRoll - defenseRoll));
+
+                defender.health -= damage;
+                return damage;
+            }
+
+            playerAttack() {
+                if (!this.gameState.combat.active || !this.gameState.combat.playerTurn) return;
+
+                const player = this.gameState.player;
+                const enemy = this.gameState.combat.enemy;
+
+                const damage = this.attack(player, enemy);
+                this.gameState.combat.messages.push(`You attack ${enemy.name} for ${damage} damage!`);
+
+                if (enemy.health <= 0) {
+                    this.gameState.combat.messages.push(`${enemy.name} defeated!`);
+                    this.endCombat();
+                    this.gameState.stats.enemiesDefeated++;
+                    return;
+                }
+
+                this.gameState.combat.playerTurn = false;
+                this.updateCombatUI();
+
+                setTimeout(() => {
+                    this.enemyAttack();
+                }, 1500);
+            }
+
+            enemyAttack() {
+                if (!this.gameState.combat.active || this.gameState.combat.playerTurn) return;
+
+                const player = this.gameState.player;
+                const enemy = this.gameState.combat.enemy;
+
+                const damage = this.attack(enemy, player);
+                this.gameState.combat.messages.push(`${enemy.name} attacks you for ${damage} damage!`);
+                player.health -= damage;
+
+                if (player.health <= 0) {
+                    this.gameState.combat.messages.push('You have been defeated!');
+                    this.endCombat();
+                    return;
+                }
+
+                this.gameState.combat.playerTurn = true;
+                this.updateCombatUI();
+            }
+
+            fleeCombat() {
+                if (!this.gameState.combat.active || !this.gameState.combat.playerTurn) return;
+
+                if (Math.random() < 0.5) {
+                    this.gameState.combat.messages.push('You successfully fled from combat!');
+                    this.endCombat();
+                } else {
+                    this.gameState.combat.messages.push('Failed to escape!');
+                    this.gameState.combat.playerTurn = false;
+                    this.updateCombatUI();
+
+                    setTimeout(() => {
+                        this.enemyAttack();
+                    }, 1500);
+                }
+            }
+
+            endCombat() {
+                this.gameState.combat.active = false;
+                document.getElementById('combatModal').classList.add('hidden');
+
+                if (this.gameState.combat.enemy.health <= 0) {
+                    const key = `${this.gameState.combat.enemy.x},${this.gameState.combat.enemy.y}`;
+                    this.gameState.map.enemies.delete(key);
+                }
+
+                this.gameState.combat.enemy = null;
+                this.gameState.combat.messages = [];
+
+                // Restore health after combat
+                this.gameState.player.health = Math.min(this.gameState.player.health + 20, this.gameState.player.maxHealth);
+
+                mapRenderer.render();
+                uiManager.updateAll();
+            }
+
+            updateCombatUI() {
+                if (!this.gameState.combat.active) return;
+
+                const enemy = this.gameState.combat.enemy;
+                const player = this.gameState.player;
+
+                document.getElementById('combatEnemyName').textContent = enemy.name;
+                document.getElementById('combatEnemyHealth').textContent = `${enemy.health} / ${enemy.maxHealth || enemy.health}`;
+                document.getElementById('combatPlayerHealth').textContent = `${Math.floor(player.health)} / ${player.maxHealth}`;
+
+                // Update health bars
+                const enemyHealthPercent = (enemy.health / (enemy.maxHealth || enemy.health)) * 100;
+                const playerHealthPercent = (player.health / player.maxHealth) * 100;
+
+                document.getElementById('combatEnemyHealthBar').style.width = `${enemyHealthPercent}%`;
+                document.getElementById('combatPlayerHealthBar').style.width = `${playerHealthPercent}%`;
+
+                // Update combat log
+                const logContainer = document.getElementById('combatLog');
+                logContainer.innerHTML = this.gameState.combat.messages.map(msg => `<p class="text-sm">${msg}</p>`).join('');
+                logContainer.scrollTop = logContainer.scrollHeight;
+
+                // Update button states
+                document.getElementById('combatAttackBtn').disabled = !this.gameState.combat.playerTurn;
+                document.getElementById('combatFleeBtn').disabled = !this.gameState.combat.playerTurn;
+            }
+        }
+
+        // ===== UI MANAGEMENT SYSTEM =====
+        class UIManager {
+            constructor(gameState) {
+                this.gameState = gameState;
+            }
+            
+            initialize() {
+                this.attachTabListeners();
+                this.attachButtonListeners();
+                this.updateAll();
+            }
+            
+            attachTabListeners() {
+                document.querySelectorAll('.tab-button').forEach(button => {
+                    button.addEventListener('click', () => {
+                        const tab = button.dataset.tab;
+                        this.switchTab(tab);
+                    });
+                });
+            }
+            
+            attachButtonListeners() {
+                // Manual Spice Harvest
+                document.getElementById('harvestSpiceBtn').addEventListener('click', () => {
+                    resourceManager.harvestSpice();
+                    this.updateResources();
+                });
+                
+                // Upgrade Manual Spice
+                document.getElementById('upgradeManualSpiceBtn').addEventListener('click', () => {
+                    resourceManager.upgradeManualSpice();
+                    this.updateUpgrades();
+                    this.updateResources();
+                });
+                
+                // Buy Auto Spice Harvester
+                document.getElementById('buyAutoSpiceBtn').addEventListener('click', () => {
+                    resourceManager.buyAutoHarvester('spice');
+                    this.updateProduction();
+                    this.updateUpgrades();
+                    this.updateResources();
+                });
+                
+                // Upgrade Auto Spice Harvester
+                document.getElementById('upgradeAutoSpiceBtn').addEventListener('click', () => {
+                    resourceManager.upgradeAutoHarvester('spice');
+                    this.updateProduction();
+                    this.updateResources();
+                });
+                
+                // Buy Auto Water Collector
+                document.getElementById('buyAutoWaterBtn').addEventListener('click', () => {
+                    resourceManager.buyAutoHarvester('water');
+                    this.updateProduction();
+                    this.updateUpgrades();
+                    this.updateResources();
+                });
+                
+                // Upgrade Auto Water Collector
+                document.getElementById('upgradeAutoWaterBtn').addEventListener('click', () => {
+                    resourceManager.upgradeAutoHarvester('water');
+                    this.updateProduction();
+                    this.updateResources();
+                });
+                
+                // Movement buttons
+                document.getElementById('moveNorthBtn').addEventListener('click', () => {
+                    movementSystem.moveDirection('north');
+                    mapRenderer.render();
+                    this.updateAll();
+                });
+                document.getElementById('moveSouthBtn').addEventListener('click', () => {
+                    movementSystem.moveDirection('south');
+                    mapRenderer.render();
+                    this.updateAll();
+                });
+                document.getElementById('moveWestBtn').addEventListener('click', () => {
+                    movementSystem.moveDirection('west');
+                    mapRenderer.render();
+                    this.updateAll();
+                });
+                document.getElementById('moveEastBtn').addEventListener('click', () => {
+                    movementSystem.moveDirection('east');
+                    mapRenderer.render();
+                    this.updateAll();
+                });
+                
+                // Zoom buttons
+                document.getElementById('zoomInBtn').addEventListener('click', () => {
+                    mapRenderer.zoomIn();
+                });
+                document.getElementById('zoomOutBtn').addEventListener('click', () => {
+                    mapRenderer.zoomOut();
+                });
+
+                // Combat buttons
+                document.getElementById('combatAttackBtn').addEventListener('click', () => {
+                    combatSystem.playerAttack();
+                });
+                document.getElementById('combatFleeBtn').addEventListener('click', () => {
+                    combatSystem.fleeCombat();
+                });
+                
+                // Save/Load buttons
+                document.getElementById('saveGameBtn').addEventListener('click', () => {
+                    gameState.save();
+                });
+                document.getElementById('loadGameBtn').addEventListener('click', () => {
+                    gameState.load();
+                    this.updateAll();
+                    mapRenderer.render();
+                });
+            }
+            
+            switchTab(tab) {
+                this.gameState.currentTab = tab;
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.add('hidden');
+                });
+                document.getElementById(`${tab}Tab`).classList.remove('hidden');
+                
+                document.querySelectorAll('.tab-button').forEach(button => {
+                    button.classList.remove('active');
+                });
+                document.querySelector(`.tab-button[data-tab="${tab}"]`).classList.add('active');
+            }
+            
+            updateAll() {
+                this.updatePlayerInfo();
+                this.updateResources();
+                this.updateProduction();
+                this.updateUpgrades();
+                this.updateQuests();
+                this.updateStats();
+            }
+            
+            updatePlayerInfo() {
+                const player = this.gameState.player;
+                document.getElementById('playerName').textContent = player.name;
+                document.getElementById('playerLevel').textContent = player.level;
+                document.getElementById('playerHealth').textContent = `${Math.floor(player.health)} / ${player.maxHealth}`;
+                document.getElementById('playerExp').textContent = `${player.experience} / ${player.experienceToNext}`;
+                
+                // Update health bar
+                const healthPercent = (player.health / player.maxHealth) * 100;
+                document.getElementById('healthBarFill').style.width = `${healthPercent}%`;
+                
+                // Update experience bar
+                const expPercent = (player.experience / player.experienceToNext) * 100;
+                document.getElementById('expBarFill').style.width = `${expPercent}%`;
+            }
+            
+            updateResources() {
+                const resources = this.gameState.resources;
+                document.getElementById('spiceCount').textContent = Math.floor(resources.spice);
+                document.getElementById('waterCount').textContent = Math.floor(resources.water);
+                document.getElementById('solariCount').textContent = Math.floor(resources.solari);
+                document.getElementById('plasteelCount').textContent = Math.floor(resources.plasteel);
+                document.getElementById('foodCount').textContent = Math.floor(resources.food);
+            }
+            
+            updateProduction() {
+                const production = this.gameState.production;
+                
+                // Manual Spice
+                document.getElementById('manualSpiceLevel').textContent = production.manual.spice.level;
+                
+                // Auto Spice
+                document.getElementById('autoSpiceCount').textContent = production.auto.spice.count;
+                document.getElementById('autoSpiceLevel').textContent = production.auto.spice.level;
+                document.getElementById('autoSpiceEfficiency').textContent = production.auto.spice.efficiency.toFixed(1);
+                
+                // Auto Water
+                document.getElementById('autoWaterCount').textContent = production.auto.water.count;
+                document.getElementById('autoWaterLevel').textContent = production.auto.water.level;
+                document.getElementById('autoWaterEfficiency').textContent = production.auto.water.efficiency.toFixed(1);
+            }
+            
+            updateUpgrades() {
+                const upgrades = this.gameState.upgrades;
+                document.getElementById('manualSpiceCost').textContent = upgrades.manualSpice;
+                document.getElementById('autoSpiceCost').textContent = upgrades.autoSpice;
+                document.getElementById('autoWaterCost').textContent = upgrades.autoWater;
+            }
+            
+            updateQuests() {
+                const questContainer = document.getElementById('questList');
+                questContainer.innerHTML = '';
+                
+                this.gameState.quests.forEach(quest => {
+                    if (!quest.active && !quest.completed) return;
+                    
+                    const questDiv = document.createElement('div');
+                    questDiv.className = `mb-4 p-4 rounded-md ${quest.completed ? 'bg-green-800' : 'bg-stone-800'}`;
+                    
+                    questDiv.innerHTML = `
+                    <h3 class="font-semibold">${quest.title}</h3>
+                    <p class="text-sm">${quest.description}</p>
+                    <ul>
+                    ${quest.objectives.map(obj => `
+                        <li class="text-xs ${obj.completed ? 'line-through text-stone-500' : ''}">
+                        ${obj.description} (${Math.min(obj.progress, obj.amount)}/${obj.amount})
+                        </li>
+                        `).join('')}
+                        </ul>
+                        `;
+                        
+                        questContainer.appendChild(questDiv);
+                    });
+                }
+                
+                updateStats() {
+                    const stats = this.gameState.stats;
+                    document.getElementById('spiceHarvestedStat').textContent = stats.spiceHarvested;
+                    document.getElementById('solariEarnedStat').textContent = stats.solariEarned;
+                    document.getElementById('enemiesDefeatedStat').textContent = stats.enemiesDefeated;
+                    document.getElementById('areasExploredStat').textContent = stats.areasExplored;
+                    document.getElementById('questsCompletedStat').textContent = stats.questsCompleted;
+                }
+            }
+            
+            // ===== INITIALIZATION =====
+            const gameState = new GameState();
+            const resourceManager = new ResourceManager(gameState);
+            const movementSystem = new MovementSystem(gameState);
+            const mapRenderer = new MapRenderer(gameState);
+            const combatSystem = new CombatSystem(gameState);
+            const uiManager = new UIManager(gameState);
+            
+            // Game loop
+            function gameLoop() {
+                if (gameState.loading) return;
+                
+                resourceManager.processAutoProduction();
+                uiManager.updateResources();
+                
+                gameState.lastUpdate = Date.now();
+                setTimeout(gameLoop, gameState.gameSpeed);
+            }
+            
+            // Initialize game
+            function initGame() {
+                gameState.loading = true;
+                
+                // Load saved game
+                const loaded = gameState.load();
+                
+                // Generate initial map features
+                if (!loaded) {
+                    generateInitialResources();
+                    generateInitialEnemies();
+                }
+                
+                // Initialize UI
+                uiManager.initialize();
+                
+                // Render initial map
+                mapRenderer.render();
+                
+                gameState.loading = false;
+                gameState.initialized = true;
+                gameState.log('Game initialized', 'success');
+                
+                // Start game loop
+                gameLoop();
+            }
+            
+            // Generate initial resources
+            function generateInitialResources() {
+                for (let i = 0; i < 20; i++) {
+                    const x = Math.floor(Math.random() * gameState.map.width);
+                    const y = Math.floor(Math.random() * gameState.map.height);
+                    const key = `${x},${y}`;
+                    
+                    if (!gameState.map.locations.has(key) && !gameState.map.resources.has(key)) {
+                        gameState.map.resources.set(key, {
+                            type: 'spice',
+                            amount: Math.floor(Math.random() * 50) + 25
+                        });
+                    }
+                }
+                
+                for (let i = 0; i < 10; i++) {
+                    const x = Math.floor(Math.random() * gameState.map.width);
+                    const y = Math.floor(Math.random() * gameState.map.height);
+                    const key = `${x},${y}`;
+                    
+                    if (!gameState.map.locations.has(key) && !gameState.map.resources.has(key)) {
+                        gameState.map.resources.set(key, {
+                            type: 'water',
+                            amount: Math.floor(Math.random() * 30) + 15
+                        });
+                    }
+                }
+            }
+            
+            // Generate initial enemies
+            function generateInitialEnemies() {
+                for (let i = 0; i < 15; i++) {
+                    const x = Math.floor(Math.random() * gameState.map.width);
+                    const y = Math.floor(Math.random() * gameState.map.height);
+                    const key = `${x},${y}`;
+                    
+                    if (!gameState.map.locations.has(key) && !gameState.map.enemies.has(key)) {
+                        gameState.map.enemies.set(key, {
+                            name: 'Fremen Warrior',
+                            health: Math.floor(Math.random() * 30) + 20,
+                            attack: Math.floor(Math.random() * 8) + 5,
+                            defense: Math.floor(Math.random() * 4) + 2,
+                            x: x,
+                            y: y
+                        });
+                    }
+                }
+            }
+            
+            // Start game when DOM is loaded
+            document.addEventListener('DOMContentLoaded', initGame);
+            
+        </script>
