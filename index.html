@@ -122,7 +122,11 @@
             },
             lastUpdated: null,
             gameInitialized: false,
-            currentTab: 'game'
+            currentTab: 'game',
+            players: {},
+            worldEvents: {},
+            chatMessages: [],
+            guilds: {}
         };
 
         // Enemy types for random encounters
@@ -250,7 +254,7 @@
             
             // Explore visible radius around starting position
             for (let x = pos.x - gameData.map.visibleRadius; x <= pos.x + gameData.map.visibleRadius; x++) {
-                for (let y = pos.y - gameData.map.visibleRadius; y <= pos.y + gameData.map.visibleRadius; y++) {
+                for (let y = pos.y - gameData.map.visibleRadius; y <= pos.y - gameData.map.visibleRadius; y++) {
                     if (x >= 0 && x < gameData.map.width && y >= 0 && y < gameData.map.height) {
                         markAreaAsExplored(x, y);
                     }
@@ -1470,6 +1474,10 @@
                         <p>💰 Solari: <span id="solariDisplay" class="font-bold text-yellow-300">0</span></p>
                         <p>🔩 Plasteel: <span id="plasteelDisplay" class="font-bold text-slate-300">0</span></p>
                         <p>🍖 Food: <span id="foodDisplay" class="font-bold text-orange-300">0</span></p>
+                        <p>❤️ Health: <span id="healthDisplayMain" class="font-bold text-green-300"></span></p>
+                        <div class="w-full progress-bar-bg rounded-full h-2 mt-1">
+                            <div id="healthBarFillMain" class="progress-bar-fill h-2 rounded-full"></div>
+                        </div>
                     </div>
                     <div class="bg-stone-700 p-4 rounded-lg shadow">
                         <h3 class="text-xl font-semibold text-amber-400 mb-2">Manual Actions</h3>
