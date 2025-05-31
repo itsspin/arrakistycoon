@@ -24,7 +24,7 @@
 
         .map-grid { 
             display: grid; 
-            grid-template-columns: repeat(15, 32px);
+            grid-template-columns: repeat(15, 28px);
             gap: 1px;
             background: linear-gradient(45deg, #451a03, #1c1917);
             border: 2px solid #f59e0b;
@@ -34,96 +34,73 @@
             box-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
         }
         .map-cell { 
-            width: 32px; height: 32px;
+            width: 28px; height: 28px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.9rem; 
+            font-size: 0.75rem; 
             font-weight: bold;
-            border: 1px solid rgba(245, 158, 11, 0.2);
-            border-radius: 4px;
+            border: 1px solid rgba(245, 158, 11, 0.1);
+            border-radius: 3px;
             cursor: pointer;
             transition: all 0.2s ease;
             position: relative;
             background: linear-gradient(135deg, #78350f, #451a03);
         }
         .map-cell:hover {
-            transform: scale(1.1);
+            transform: scale(1.2);
             z-index: 10;
             border-color: #f59e0b !important;
-            box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+            box-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
         }
         .map-cell-player { 
             background: radial-gradient(circle, #facc15, #eab308) !important; 
-            color: black !important; 
-            box-shadow: 0 0 15px #facc15; 
+            color: #1c1917 !important; 
+            box-shadow: 0 0 12px #facc15; 
             animation: pulse-player 2s infinite; 
             border: 2px solid #fff !important;
+            font-size: 0.9rem;
         }
         .map-cell-other-player { 
-            box-shadow: 0 0 12px currentColor; 
+            box-shadow: 0 0 10px currentColor; 
             animation: pulse-other-player 3s infinite; 
             border: 2px solid currentColor !important;
+            font-size: 0.8rem;
         }
-        .map-cell-enemy { background: linear-gradient(135deg, #ef4444, #dc2626) !important; color: white !important; }
+        .map-cell-enemy { background: linear-gradient(135deg, #dc2626, #b91c1c) !important; color: white !important; }
         .map-cell-boss { background: linear-gradient(135deg, #7e22ce, #6b21a8) !important; color: white !important; animation: pulse-boss 2s infinite alternate; }
         .map-cell-special-enemy { background: linear-gradient(135deg, #f97316, #ea580c) !important; color: white !important; animation: shimmer 3s infinite; }
-        .map-cell-sandworm { background: linear-gradient(135deg, #451a03, #f59e0b) !important; color: #fed7aa !important; animation: sandworm-pulse 3s infinite; }
-        .map-cell-resource-spice { background: linear-gradient(135deg, #ea580c, #f97316) !important; color: #fed7aa !important; }
-        .map-cell-resource-water { background: linear-gradient(135deg, #0ea5e9, #0284c7) !important; color: white !important; }
-        .map-cell-resource-plasteel { background: linear-gradient(135deg, #64748b, #475569) !important; color: white !important; }
+        .map-cell-resource { background: linear-gradient(135deg, #059669, #047857) !important; color: #d1fae5 !important; }
         .map-cell-settlement { background: linear-gradient(135deg, #16a34a, #15803d) !important; color: white !important; }
-        .map-cell-territory { border: 3px solid currentColor !important; }
+        .map-cell-territory { border: 2px solid currentColor !important; }
         .map-cell-world-event { 
             background: linear-gradient(45deg, #8b5cf6, #a855f7) !important; 
             color: white !important; 
             animation: world-event-pulse 2s infinite;
         }
+        .map-cell-hidden { opacity: 0.6; }
 
         @keyframes pulse-player { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
         @keyframes pulse-other-player { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
         @keyframes pulse-boss { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.3); } }
         @keyframes shimmer { 0%, 100% { filter: hue-rotate(0deg) brightness(1); } 50% { filter: hue-rotate(30deg) brightness(1.2); } }
-        @keyframes sandworm-pulse { 0%, 100% { box-shadow: 0 0 0 rgba(245, 158, 11, 0.7); } 50% { box-shadow: 0 0 25px rgba(245, 158, 11, 0.9); } }
         @keyframes world-event-pulse { 0%, 100% { box-shadow: 0 0 0 rgba(139, 92, 246, 0.7); } 50% { box-shadow: 0 0 20px rgba(139, 92, 246, 0.9); } }
 
         .notification {
-            position: fixed; top: 20px; right: 20px; z-index: 10000;
-            padding: 12px 18px; border-radius: 8px; color: white; font-weight: 500;
-            transform: translateX(120%); opacity: 0;
-            transition: transform 0.4s ease-out, opacity 0.4s ease-out;
-            min-width: 300px; max-width: 400px; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
-            border-left: 4px solid currentColor;
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 10000;
+            padding: 12px 24px; border-radius: 8px; color: white; font-weight: 500;
+            opacity: 0; transform: translateX(-50%) translateY(100%);
+            transition: all 0.4s ease-out;
+            min-width: 300px; max-width: 500px; text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            border: 2px solid currentColor;
         }
-        .notification.show { transform: translateX(0); opacity: 1;}
+        .notification.show { opacity: 1; transform: translateX(-50%) translateY(0); }
         .notification.success { background: linear-gradient(135deg, #10b981, #059669); }
         .notification.error { background: linear-gradient(135deg, #ef4444, #dc2626); }
         .notification.warning { background: linear-gradient(135deg, #f59e0b, #d97706); color: #1c1917; }
         .notification.info { background: linear-gradient(135deg, #3b82f6, #2563eb); }
         .notification.legendary { background: linear-gradient(45deg, #f59e0b, #ef4444, #8b5cf6); animation: shimmer 2s infinite; }
-
-        .defeat-popup {
-            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 9999;
-            padding: 15px 25px; border-radius: 10px; 
-            background: linear-gradient(135deg, #ef4444, #dc2626);
-            color: white; font-weight: bold; font-size: 1.1rem;
-            box-shadow: 0 5px 20px rgba(239, 68, 68, 0.5);
-            opacity: 0; animation: defeat-popup 4s ease-in-out;
-        }
-        @keyframes defeat-popup { 0%, 100% { opacity: 0; transform: translateX(-50%) translateY(100%); } 20%, 80% { opacity: 1; transform: translateX(-50%) translateY(0); } }
-
-        .quote-popup {
-            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 9999;
-            padding: 20px 30px; border-radius: 10px; 
-            background: linear-gradient(135deg, rgba(28, 25, 23, 0.95), rgba(41, 37, 36, 0.95));
-            color: #f59e0b; font-style: italic; font-size: 1.1rem;
-            border: 2px solid #f59e0b;
-            box-shadow: 0 5px 25px rgba(245, 158, 11, 0.3);
-            max-width: 600px; text-align: center;
-            opacity: 0; animation: quote-popup 6s ease-in-out;
-        }
-        @keyframes quote-popup { 0%, 100% { opacity: 0; transform: translateX(-50%) translateY(100%); } 15%, 85% { opacity: 1; transform: translateX(-50%) translateY(0); } }
 
         .modal-overlay { position: fixed; inset: 0; background-color: rgba(0,0,0,0.8); z-index: 5000; display: flex; align-items: center; justify-content: center; }
         .modal-content { 
@@ -138,61 +115,42 @@
             overflow-y: auto;
         }
 
-        .player-color-red { color: #ef4444 !important; }
-        .player-color-blue { color: #3b82f6 !important; }
-        .player-color-green { color: #10b981 !important; }
-        .player-color-purple { color: #8b5cf6 !important; }
-        .player-color-orange { color: #f97316 !important; }
-        .player-color-pink { color: #ec4899 !important; }
-        .player-color-yellow { color: #eab308 !important; }
-        .player-color-cyan { color: #06b6d4 !important; }
-
-        .chat-container {
-            height: 300px;
-            overflow-y: auto;
-            border: 1px solid #44403c;
-            border-radius: 6px;
-            background: rgba(28, 25, 23, 0.8);
-        }
-
-        .territory-owned {
-            background: radial-gradient(circle, rgba(16, 185, 129, 0.3), rgba(16, 185, 129, 0.1)) !important;
-            border: 2px dashed #10b981 !important;
-        }
-
-        .world-event-marker {
-            position: absolute;
-            top: -2px;
-            right: -2px;
-            width: 8px;
-            height: 8px;
-            background: #8b5cf6;
+        .color-preview {
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
-            animation: pulse 2s infinite;
-        }
-
-        .energy-production-building {
-            background: linear-gradient(135deg, #0f172a, #1e293b);
-            border: 1px solid #3b82f6;
-        }
-
-        .trading-item {
+            border: 3px solid #6b7280;
+            cursor: pointer;
             transition: all 0.2s;
+        }
+        .color-preview:hover { transform: scale(1.1); }
+        .color-preview.selected { border-color: #f59e0b; box-shadow: 0 0 10px #f59e0b; }
+
+        .building-card {
+            background: linear-gradient(135deg, #374151, #4b5563);
+            border: 2px solid #6b7280;
+            border-radius: 8px;
+            padding: 16px;
+            transition: all 0.3s ease;
             cursor: pointer;
         }
-        .trading-item:hover {
-            transform: scale(1.02);
-            box-shadow: 0 5px 15px rgba(245, 158, 11, 0.3);
+        .building-card:hover {
+            border-color: #f59e0b;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(245, 158, 11, 0.3);
         }
-        .trading-item.selected {
-            border-color: #f59e0b !important;
-            background-color: rgba(245, 158, 11, 0.1) !important;
+        .building-card.owned {
+            border-color: #10b981;
+            background: linear-gradient(135deg, #065f46, #047857);
         }
 
-        .tycoon-building {
-            background: linear-gradient(135deg, #7c2d12, #92400e);
-            border: 2px solid #f59e0b;
+        .ranking-card {
+            transition: all 0.2s;
+            border-left: 4px solid transparent;
         }
+        .ranking-card.rank-1 { border-left-color: #ffd700; background: linear-gradient(90deg, rgba(255, 215, 0, 0.1), transparent); }
+        .ranking-card.rank-2 { border-left-color: #c0c0c0; background: linear-gradient(90deg, rgba(192, 192, 192, 0.1), transparent); }
+        .ranking-card.rank-3 { border-left-color: #cd7f32; background: linear-gradient(90deg, rgba(205, 127, 50, 0.1), transparent); }
 
         .leaderboard-entry {
             transition: all 0.2s;
@@ -225,6 +183,26 @@
             border-color: #f59e0b;
             transform: scale(1.05);
         }
+
+        .upgrade-button {
+            background: linear-gradient(135deg, #7c2d12, #92400e);
+            border: 2px solid #f59e0b;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: bold;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .upgrade-button:hover {
+            background: linear-gradient(135deg, #92400e, #a16207);
+            transform: scale(1.05);
+        }
+        .upgrade-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
     </style>
 </head>
 <body class="bg-stone-950 text-stone-300 antialiased">
@@ -249,10 +227,11 @@
         let app, auth, db, userId;
         let firebaseInitialized = false;
         let initializationTimeout;
+        let currentNotification = null;
 
         // === GAME CONSTANTS ===
         const CONFIG = {
-            MAP_SIZE: 200,
+            MAP_SIZE: 500,
             VIEW_RADIUS: 7,
             MAX_INVENTORY: 40,
             ENERGY_REGEN_RATE: 3,
@@ -265,11 +244,19 @@
             XP_FACTOR: 1.4,
             TERRITORY_BASE_COST: 1000,
             TERRITORY_COST_MULTIPLIER: 1.5,
-            ENERGY_PRODUCTION_UNLOCK_LEVEL: 10
+            ENERGY_PRODUCTION_UNLOCK_LEVEL: 10,
+            MAP_SEED: 12345
         };
 
         const PLAYER_COLORS = [
-            'red', 'blue', 'green', 'purple', 'orange', 'pink', 'yellow', 'cyan'
+            { id: 'red', name: 'Crimson', hex: '#ef4444' },
+            { id: 'blue', name: 'Azure', hex: '#3b82f6' },
+            { id: 'green', name: 'Emerald', hex: '#10b981' },
+            { id: 'purple', name: 'Violet', hex: '#8b5cf6' },
+            { id: 'orange', name: 'Amber', hex: '#f97316' },
+            { id: 'pink', name: 'Rose', hex: '#ec4899' },
+            { id: 'yellow', name: 'Gold', hex: '#eab308' },
+            { id: 'cyan', name: 'Aqua', hex: '#06b6d4' }
         ];
 
         const DUNE_QUOTES = [
@@ -311,49 +298,49 @@
             },
             ENEMIES: {
                 sandRaider: { 
-                    name: "Fremen Raider", icon: "🏹", health: 60, attack: 12, defense: 6, 
-                    xp: 40, loot: { solari: 30, spice: 10, water: 8 }, level: 1, spawnChance: 0.4,
-                    description: "Desert nomad seeking spice and water."
+                    name: "Desert Bandit", icon: "🏹", health: 40, attack: 8, defense: 4, 
+                    xp: 25, loot: { solari: 20, spice: 5, water: 3 }, level: 1, spawnChance: 0.15,
+                    description: "Desert nomad seeking easy prey."
                 },
                 smuggler: {
-                    name: "Spice Smuggler", icon: "🥷", health: 80, attack: 18, defense: 8,
-                    xp: 60, loot: { solari: 50, melange: 2, rareMaterials: 1 }, level: 2, spawnChance: 0.25,
+                    name: "Spice Smuggler", icon: "👤", health: 60, attack: 12, defense: 6,
+                    xp: 40, loot: { solari: 35, melange: 1, spice: 8 }, level: 2, spawnChance: 0.12,
                     description: "Black market dealer in illegal spice."
                 },
                 harkonnenGuard: { 
-                    name: "Harkonnen Guard", icon: "👤", health: 100, attack: 20, defense: 10, 
-                    xp: 80, loot: { solari: 60, plasteel: 8, rareMaterials: 2 }, level: 3, spawnChance: 0.2,
+                    name: "Harkonnen Guard", icon: "⚔️", health: 80, attack: 16, defense: 8, 
+                    xp: 60, loot: { solari: 50, plasteel: 6, rareMaterials: 1 }, level: 3, spawnChance: 0.1,
                     description: "Brutal enforcer of Baron Harkonnen."
                 },
                 sardaukar: { 
-                    name: "Sardaukar Elite", icon: "⚔️", health: 150, attack: 30, defense: 15, 
-                    xp: 150, loot: { solari: 120, rareMaterials: 5, melange: 3 }, level: 5, spawnChance: 0.1,
+                    name: "Sardaukar Elite", icon: "👑", health: 120, attack: 24, defense: 12, 
+                    xp: 120, loot: { solari: 100, rareMaterials: 4, melange: 2 }, level: 5, spawnChance: 0.06,
                     description: "Imperial super-soldier. Extremely dangerous."
                 },
                 guildNavigator: {
-                    name: "Guild Navigator", icon: "👁️", health: 200, attack: 25, defense: 20,
-                    xp: 200, loot: { melange: 8, rareMaterials: 8, solari: 200 }, level: 7, spawnChance: 0.05,
+                    name: "Guild Navigator", icon: "👁️", health: 150, attack: 20, defense: 15,
+                    xp: 150, loot: { melange: 6, rareMaterials: 6, solari: 150 }, level: 7, spawnChance: 0.03,
                     special: true, description: "Mutated spice addict with prescient abilities."
                 },
                 mentat: {
-                    name: "Corrupted Mentat", icon: "🧠", health: 180, attack: 35, defense: 12,
-                    xp: 180, loot: { solari: 150, melange: 5, rareMaterials: 6 }, level: 6, spawnChance: 0.08,
+                    name: "Corrupted Mentat", icon: "🧠", health: 140, attack: 28, defense: 10,
+                    xp: 140, loot: { solari: 120, melange: 4, rareMaterials: 5 }, level: 6, spawnChance: 0.04,
                     special: true, description: "Human computer driven mad by forbidden calculations."
                 },
                 beastRabban: { 
-                    name: "Beast Rabban", icon: "👹", health: 400, attack: 50, defense: 25, 
-                    xp: 400, loot: { solari: 1000, spice: 150, rareMaterials: 15, melange: 8 }, 
-                    boss: true, level: 10, spawnChance: 0.02, description: "Harkonnen na-Baron. Ruthless and brutal."
+                    name: "Beast Rabban", icon: "👹", health: 300, attack: 40, defense: 20, 
+                    xp: 300, loot: { solari: 800, spice: 120, rareMaterials: 12, melange: 6 }, 
+                    boss: true, level: 10, spawnChance: 0.008, description: "Harkonnen na-Baron. Ruthless and brutal."
                 },
                 baronHarkonnen: {
-                    name: "Baron Vladimir Harkonnen", icon: "🦹", health: 800, attack: 70, defense: 35,
-                    xp: 800, loot: { solari: 2500, spice: 300, rareMaterials: 30, melange: 20 },
-                    boss: true, level: 20, spawnChance: 0.01, description: "The Baron himself. Master of schemes."
+                    name: "Baron Vladimir Harkonnen", icon: "🦹", health: 600, attack: 60, defense: 30,
+                    xp: 600, loot: { solari: 2000, spice: 250, rareMaterials: 25, melange: 15 },
+                    boss: true, level: 20, spawnChance: 0.003, description: "The Baron himself. Master of schemes."
                 },
                 sandworm: {
-                    name: "Shai-Hulud", icon: "🐛", health: 1500, attack: 120, defense: 50,
-                    xp: 1500, loot: { spice: 800, melange: 80, rareMaterials: 60 },
-                    boss: true, level: 25, legendary: true, spawnChance: 0.005, description: "The Great Sandworm. Maker of spice."
+                    name: "Shai-Hulud", icon: "🐛", health: 1200, attack: 100, defense: 40,
+                    xp: 1200, loot: { spice: 600, melange: 60, rareMaterials: 50 },
+                    boss: true, level: 25, legendary: true, spawnChance: 0.001, description: "The Great Sandworm. Maker of spice."
                 }
             },
             ITEMS: {
@@ -367,6 +354,68 @@
                 choamRing: { name: "CHOAM Signet", icon: "💍", type: "accessory", special: "trading", rarity: "legendary", description: "Grants access to exclusive markets.", dropChance: 0.05 },
                 powerArmor: { name: "Sardaukar Armor", icon: "🛡️", type: "armor", defense: 35, attack: 10, rarity: "legendary", description: "Imperial military armor.", dropChance: 0.06 },
                 guildArtifact: { name: "Guild Artifact", icon: "👁️", type: "accessory", special: "prescience", rarity: "legendary", description: "Navigator technology.", dropChance: 0.04 }
+            },
+            BUILDINGS: {
+                spiceExtractor: {
+                    name: "Spice Extractor",
+                    icon: "⛏️",
+                    description: "Automatically harvests spice from the desert",
+                    baseCost: { solari: 500, plasteel: 20 },
+                    baseProduction: { spice: 5 },
+                    costMultiplier: 1.5,
+                    maxLevel: 20,
+                    unlockLevel: 1
+                },
+                waterRecycler: {
+                    name: "Water Recycler",
+                    icon: "💧",
+                    description: "Recycles and purifies water from moisture",
+                    baseCost: { solari: 800, plasteel: 30, rareMaterials: 2 },
+                    baseProduction: { water: 3 },
+                    costMultiplier: 1.6,
+                    maxLevel: 15,
+                    unlockLevel: 3
+                },
+                plasticFactory: {
+                    name: "Plasteel Factory",
+                    icon: "🏭",
+                    description: "Manufactures plasteel from raw materials",
+                    baseCost: { solari: 1200, water: 50, rareMaterials: 5 },
+                    baseProduction: { plasteel: 2 },
+                    costMultiplier: 1.7,
+                    maxLevel: 12,
+                    unlockLevel: 5
+                },
+                refineryComplex: {
+                    name: "Melange Refinery",
+                    icon: "🧪",
+                    description: "Refines raw spice into pure melange",
+                    baseCost: { solari: 2000, plasteel: 50, rareMaterials: 10 },
+                    baseProduction: { melange: 1 },
+                    costMultiplier: 2.0,
+                    maxLevel: 10,
+                    unlockLevel: 8
+                },
+                tradingPost: {
+                    name: "Trading Post",
+                    icon: "🏪",
+                    description: "Generates passive income from trade",
+                    baseCost: { solari: 1500, plasteel: 25, water: 30 },
+                    baseProduction: { solari: 50 },
+                    costMultiplier: 1.8,
+                    maxLevel: 15,
+                    unlockLevel: 4
+                },
+                researchCenter: {
+                    name: "Research Center",
+                    icon: "🔬",
+                    description: "Discovers rare materials through research",
+                    baseCost: { solari: 3000, plasteel: 80, melange: 5 },
+                    baseProduction: { rareMaterials: 1 },
+                    costMultiplier: 2.2,
+                    maxLevel: 8,
+                    unlockLevel: 12
+                }
             },
             WORLD_EVENTS: [
                 {
@@ -414,7 +463,7 @@
                 id: null, name: "", color: "red", level: 1, experience: 0, experienceToNext: 100,
                 health: 120, maxHealth: 120, energy: 150, maxEnergy: 150,
                 attack: 15, defense: 10, critChance: 8, dodgeChance: 15,
-                position: { x: 100, y: 100 }, basePosition: { x: 100, y: 100 },
+                position: { x: 250, y: 250 }, basePosition: { x: 250, y: 250 },
                 house: null, rank: 'Desert Rat', power: 0, prestigeLevel: 0,
                 territories: [], lifetimeSpice: 0, totalEnemiesDefeated: 0,
                 energyProductionRate: CONFIG.ENERGY_REGEN_RATE,
@@ -429,20 +478,29 @@
             gameInitialized: false,
             lastSaveTime: 0,
             lastEnergyRegen: Date.now(),
+            lastBuildingProduction: Date.now(),
             onlinePlayers: {},
             worldEvents: [],
             tradeOffers: [],
-            map: { enemies: {}, resources: {}, territories: {} }
+            rankings: [],
+            mapData: null
         };
 
-        // === HELPER FUNCTIONS ===
+        // === UTILITY FUNCTIONS ===
+        function seededRandom(seed) {
+            const x = Math.sin(seed) * 10000;
+            return x - Math.floor(x);
+        }
+
+        function generateMapSeed(x, y) {
+            return CONFIG.MAP_SEED + x * 1000 + y;
+        }
+
         function hideLoadingScreen() {
             const loadingScreen = document.getElementById('loadingScreen');
             if (loadingScreen) {
                 console.log("🎯 Hiding loading screen");
                 loadingScreen.style.display = 'none';
-            } else {
-                console.log("❌ Loading screen element not found!");
             }
         }
 
@@ -457,15 +515,12 @@
                 
                 console.log("✅ Firebase app initialized");
                 
-                // Set up auth state listener
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
                         console.log("✅ User authenticated:", user.uid);
                         
-                        // Clear the timeout since Firebase is working
                         if (initializationTimeout) {
                             clearTimeout(initializationTimeout);
-                            console.log("⏰ Cleared initialization timeout");
                         }
                         
                         userId = user.uid;
@@ -498,12 +553,10 @@
             console.log("📴 Starting offline mode...");
             firebaseInitialized = false;
             
-            // Clear timeout if it exists
             if (initializationTimeout) {
                 clearTimeout(initializationTimeout);
             }
             
-            // Try to load from localStorage
             try {
                 const savedData = localStorage.getItem('arrakis_gamestate');
                 if (savedData) {
@@ -533,7 +586,6 @@
         }
 
         async function saveGame() {
-            // Always save to localStorage
             try {
                 localStorage.setItem('arrakis_gamestate', JSON.stringify({
                     player: gameState.player,
@@ -554,7 +606,6 @@
                 console.error('Local save failed:', error);
             }
             
-            // Save to Firebase if available
             if (!db || !userId || !firebaseInitialized) return;
             
             try {
@@ -570,7 +621,6 @@
                 
                 await setDoc(doc(db, 'players', userId), playerData);
                 
-                // Update player position for map display
                 await setDoc(doc(db, 'playerPositions', userId), {
                     position: gameState.player.position,
                     name: gameState.player.name,
@@ -578,6 +628,10 @@
                     level: gameState.player.level,
                     prestigeLevel: gameState.player.prestigeLevel,
                     house: gameState.player.house,
+                    lifetimeSpice: gameState.player.lifetimeSpice,
+                    territories: gameState.player.territories?.length || 0,
+                    totalEnemiesDefeated: gameState.player.totalEnemiesDefeated,
+                    power: calculatePlayerPower(),
                     lastUpdate: serverTimestamp()
                 });
                 
@@ -631,20 +685,26 @@
             if (!db) return;
             
             try {
-                // Listen for other players
-                const playersQuery = query(collection(db, 'playerPositions'), orderBy('lastUpdate', 'desc'), limit(50));
+                const playersQuery = query(collection(db, 'playerPositions'), orderBy('lastUpdate', 'desc'), limit(100));
                 onSnapshot(playersQuery, (snapshot) => {
                     gameState.onlinePlayers = {};
+                    const playerList = [];
                     snapshot.forEach((doc) => {
+                        const playerData = doc.data();
                         if (doc.id !== userId) {
-                            gameState.onlinePlayers[doc.id] = doc.data();
+                            gameState.onlinePlayers[doc.id] = playerData;
                         }
+                        playerList.push({ id: doc.id, ...playerData });
                     });
+                    
+                    // Update rankings
+                    gameState.rankings = playerList.sort((a, b) => b.power - a.power).slice(0, 50);
+                    
                     updateOnlinePlayersDisplay();
+                    updateRankingsDisplay();
                     renderMap();
                 });
 
-                // Listen for world chat
                 const chatQuery = query(collection(db, 'worldChat'), orderBy('timestamp', 'desc'), limit(50));
                 onSnapshot(chatQuery, (snapshot) => {
                     const messages = [];
@@ -654,7 +714,6 @@
                     updateWorldChat(messages);
                 });
 
-                // Listen for world events
                 const eventsQuery = query(collection(db, 'worldEvents'), where('endTime', '>', new Date()));
                 onSnapshot(eventsQuery, (snapshot) => {
                     gameState.worldEvents = [];
@@ -665,18 +724,6 @@
                     renderMap();
                 });
 
-                // Listen for trade offers
-                const tradesQuery = query(collection(db, 'tradeOffers'), where('status', '==', 'open'));
-                onSnapshot(tradesQuery, (snapshot) => {
-                    gameState.tradeOffers = [];
-                    snapshot.forEach((doc) => {
-                        const trade = { id: doc.id, ...doc.data() };
-                        if (trade.toPlayerId === userId || trade.fromPlayerId === userId) {
-                            gameState.tradeOffers.push(trade);
-                        }
-                    });
-                    updateTradeOffersDisplay();
-                });
             } catch (error) {
                 console.error('Failed to start multiplayer sync:', error);
             }
@@ -686,7 +733,6 @@
         function showNameSelectionModal() {
             console.log("🎭 Showing name selection modal");
             
-            // Hide loading screen first
             hideLoadingScreen();
             
             const modal = document.createElement('div');
@@ -701,10 +747,14 @@
                     </div>
                     <div class="mb-6">
                         <label class="block text-sm font-medium mb-2">Choose Your Color:</label>
-                        <div class="grid grid-cols-4 gap-2">
+                        <div class="grid grid-cols-4 gap-3">
                             ${PLAYER_COLORS.map(color => `
-                                <button class="color-btn w-12 h-12 rounded-full border-2 border-stone-600 player-color-${color}" 
-                                        data-color="${color}" style="background-color: var(--tw-color-${color}-500)"></button>
+                                <div class="text-center">
+                                    <div class="color-preview mx-auto mb-1" 
+                                         data-color="${color.id}" 
+                                         style="background-color: ${color.hex}"></div>
+                                    <span class="text-xs">${color.name}</span>
+                                </div>
                             `).join('')}
                         </div>
                     </div>
@@ -720,18 +770,16 @@
             const nameInput = modal.querySelector('#playerNameInput');
             const confirmBtn = modal.querySelector('#confirmNameBtn');
             
-            // Color selection
-            modal.querySelectorAll('.color-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    modal.querySelectorAll('.color-btn').forEach(b => b.classList.remove('ring-4', 'ring-amber-400'));
-                    btn.classList.add('ring-4', 'ring-amber-400');
-                    selectedColor = btn.dataset.color;
+            modal.querySelectorAll('.color-preview').forEach(preview => {
+                preview.addEventListener('click', () => {
+                    modal.querySelectorAll('.color-preview').forEach(p => p.classList.remove('selected'));
+                    preview.classList.add('selected');
+                    selectedColor = preview.dataset.color;
                     checkFormValid();
                 });
             });
             
-            // First color selected by default
-            modal.querySelector('.color-btn').click();
+            modal.querySelector('.color-preview').click();
             
             nameInput.addEventListener('input', checkFormValid);
             
@@ -746,7 +794,6 @@
                     gameState.player.name = name;
                     gameState.player.color = selectedColor;
                     
-                    // Save to localStorage immediately
                     localStorage.setItem('arrakis_player_name', name);
                     localStorage.setItem('arrakis_player_color', selectedColor);
                     
@@ -768,7 +815,7 @@
                     
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         ${Object.entries(STATIC_DATA.HOUSES).map(([houseId, house]) => `
-                            <button class="house-btn p-6 border-2 rounded-lg ${house.color} hover:bg-stone-700 transition-all text-left" data-house="${houseId}">
+                            <button class="house-btn p-6 border-2 border-stone-600 rounded-lg hover:bg-stone-700 transition-all text-left" data-house="${houseId}">
                                 <h4 class="text-xl font-bold mb-3">${house.name}</h4>
                                 <p class="text-sm text-stone-300 mb-4">${house.description}</p>
                                 <div class="text-xs text-amber-300">
@@ -800,10 +847,8 @@
             const house = STATIC_DATA.HOUSES[houseId];
             gameState.player.house = houseId;
             
-            // Save to localStorage
             localStorage.setItem('arrakis_player_house', houseId);
             
-            // Apply starting bonuses
             if (house.startingBonus.solari) {
                 gameState.resources.solari += house.startingBonus.solari;
             }
@@ -832,20 +877,13 @@
             
             gameState.gameInitialized = true;
             
-            // Make sure loading screen is hidden
             hideLoadingScreen();
             
-            // Initialize map
-            initializeMap();
-            
-            // Start game loop
             startGameLoop();
             
-            // Initial UI update
             updateUI();
             renderMap();
             
-            // Save initial state
             saveGame();
             
             showNotification(`Welcome to Arrakis, ${gameState.player.name}!`, 'success', 6000);
@@ -855,47 +893,67 @@
         }
 
         // === MAP SYSTEM ===
-        function initializeMap() {
-            console.log("🗺️ Initializing map...");
+        function getMapCellContent(x, y) {
+            const seed = generateMapSeed(x, y);
+            const rand = seededRandom(seed);
             
-            // Generate enemies
-            for (let i = 0; i < 400; i++) {
-                const pos = getRandomPosition();
-                const key = `${pos.x},${pos.y}`;
-                
-                const enemyTypes = Object.entries(STATIC_DATA.ENEMIES);
-                for (const [enemyType, enemy] of enemyTypes) {
-                    if (Math.random() < enemy.spawnChance) {
-                        gameState.map.enemies[key] = {
-                            id: generateId(),
-                            type: enemyType,
-                            position: pos,
+            // Enemies
+            const enemyTypes = Object.entries(STATIC_DATA.ENEMIES);
+            for (const [enemyType, enemy] of enemyTypes) {
+                if (rand < enemy.spawnChance) {
+                    return {
+                        type: 'enemy',
+                        subtype: enemyType,
+                        data: {
                             ...enemy,
-                            currentHealth: enemy.health
-                        };
-                        break;
-                    }
-                }
-            }
-            
-            // Generate resources
-            for (let i = 0; i < 200; i++) {
-                const pos = getRandomPosition();
-                const key = `${pos.x},${pos.y}`;
-                
-                if (!gameState.map.enemies[key]) {
-                    const resourceTypes = ['spice', 'water', 'plasteel', 'rareMaterials'];
-                    const weights = [50, 25, 15, 10];
-                    const resourceType = weightedRandom(resourceTypes, weights);
-                    
-                    gameState.map.resources[key] = {
-                        id: generateId(),
-                        type: resourceType,
-                        position: pos,
-                        amount: 30 + Math.floor(Math.random() * 70)
+                            currentHealth: enemy.health,
+                            position: { x, y },
+                            id: `${x}-${y}-${enemyType}`
+                        }
                     };
                 }
             }
+            
+            // Resources
+            if (seededRandom(seed + 1000) < 0.08) {
+                const resourceTypes = ['spice', 'water', 'plasteel', 'rareMaterials'];
+                const resourceWeights = [0.5, 0.25, 0.15, 0.1];
+                const resourceRand = seededRandom(seed + 2000);
+                
+                let resourceType = 'spice';
+                let cumulative = 0;
+                for (let i = 0; i < resourceTypes.length; i++) {
+                    cumulative += resourceWeights[i];
+                    if (resourceRand < cumulative) {
+                        resourceType = resourceTypes[i];
+                        break;
+                    }
+                }
+                
+                return {
+                    type: 'resource',
+                    subtype: resourceType,
+                    data: {
+                        type: resourceType,
+                        amount: 20 + Math.floor(seededRandom(seed + 3000) * 50),
+                        position: { x, y },
+                        id: `${x}-${y}-resource`
+                    }
+                };
+            }
+            
+            // Hidden fights
+            if (seededRandom(seed + 4000) < 0.02) {
+                return {
+                    type: 'hidden',
+                    data: {
+                        type: 'hidden_combat',
+                        position: { x, y }
+                    }
+                };
+            }
+            
+            return null;
         }
 
         function renderMap() {
@@ -908,7 +966,6 @@
             const playerY = gameState.player.position.y;
             const radius = CONFIG.VIEW_RADIUS;
             
-            // Update coordinates display
             const coordsElement = document.getElementById('mapPlayerCoords');
             if (coordsElement) {
                 coordsElement.textContent = `${playerX},${playerY}`;
@@ -918,20 +975,18 @@
                 for (let dx = -radius; dx <= radius; dx++) {
                     const x = playerX + dx;
                     const y = playerY + dy;
-                    const key = `${x},${y}`;
                     
                     const cell = document.createElement('div');
                     cell.className = 'map-cell';
                     cell.dataset.x = x;
                     cell.dataset.y = y;
                     
-                    // Check for content
                     let hasContent = false;
                     
                     // Player position
                     if (x === playerX && y === playerY) {
                         cell.className += ' map-cell-player';
-                        cell.textContent = '👤';
+                        cell.textContent = '★';
                         cell.title = `${gameState.player.name} (P${gameState.player.prestigeLevel})`;
                         hasContent = true;
                     }
@@ -940,7 +995,7 @@
                         for (const [playerId, player] of Object.entries(gameState.onlinePlayers)) {
                             if (player.position && player.position.x === x && player.position.y === y) {
                                 cell.className += ` map-cell-other-player player-color-${player.color}`;
-                                cell.textContent = '👤';
+                                cell.textContent = '◆';
                                 cell.title = `${player.name} (P${player.prestigeLevel || 0}) - ${STATIC_DATA.HOUSES[player.house]?.name || 'No House'}`;
                                 hasContent = true;
                                 break;
@@ -959,45 +1014,42 @@
                             }
                         }
                     }
-                    // Enemies
-                    if (!hasContent && gameState.map?.enemies?.[key]) {
-                        const enemy = gameState.map.enemies[key];
-                        if (enemy.special) {
-                            cell.className += ' map-cell-special-enemy';
-                        } else if (enemy.boss) {
-                            cell.className += ' map-cell-boss';
-                        } else {
-                            cell.className += ' map-cell-enemy';
-                        }
-                        cell.textContent = enemy.icon;
-                        cell.title = `${enemy.name} (Lv.${enemy.level}) - ${enemy.description}`;
-                        hasContent = true;
-                    }
-                    // Resources
-                    else if (!hasContent && gameState.map?.resources?.[key]) {
-                        const resource = gameState.map.resources[key];
-                        cell.className += ` map-cell-resource-${resource.type}`;
-                        const icons = { spice: '✨', water: '💧', plasteel: '🔧', rareMaterials: '💎' };
-                        cell.textContent = icons[resource.type] || '📦';
-                        cell.title = `${resource.type.charAt(0).toUpperCase() + resource.type.slice(1)} (${resource.amount})`;
-                        hasContent = true;
-                    }
-                    // Territory
-                    if (gameState.map?.territories?.[key]) {
-                        const territory = gameState.map.territories[key];
-                        cell.classList.add('map-cell-territory');
-                        if (territory.ownerId === userId) {
-                            cell.classList.add('territory-owned');
-                        } else {
-                            cell.style.borderColor = `var(--tw-color-${territory.ownerColor}-500)`;
+                    
+                    if (!hasContent) {
+                        const content = getMapCellContent(x, y);
+                        if (content) {
+                            switch (content.type) {
+                                case 'enemy':
+                                    const enemy = content.data;
+                                    if (enemy.special) {
+                                        cell.className += ' map-cell-special-enemy';
+                                    } else if (enemy.boss) {
+                                        cell.className += ' map-cell-boss';
+                                    } else {
+                                        cell.className += ' map-cell-enemy';
+                                    }
+                                    cell.textContent = enemy.icon;
+                                    cell.title = `${enemy.name} (Lv.${enemy.level})`;
+                                    break;
+                                case 'resource':
+                                    cell.className += ' map-cell-resource';
+                                    const resourceIcons = { spice: '◈', water: '○', plasteel: '◊', rareMaterials: '◊' };
+                                    cell.textContent = resourceIcons[content.data.type] || '◈';
+                                    cell.title = `${content.data.type} (${content.data.amount})`;
+                                    break;
+                                case 'hidden':
+                                    cell.className += ' map-cell-hidden';
+                                    cell.textContent = '?';
+                                    cell.title = 'Something is hidden here...';
+                                    break;
+                            }
+                            hasContent = true;
                         }
                     }
                     
-                    // Empty desert
                     if (!hasContent) {
-                        const terrains = ['🏜️', '🌵', '🪨', '⛰️'];
-                        cell.textContent = terrains[Math.floor(Math.random() * terrains.length)];
-                        cell.title = 'Empty desert - Click to purchase territory';
+                        cell.textContent = '·';
+                        cell.title = 'Empty desert';
                     }
                     
                     cell.addEventListener('click', () => handleCellClick(parseInt(x), parseInt(y)));
@@ -1009,26 +1061,24 @@
         function handleCellClick(x, y) {
             const dx = x - gameState.player.position.x;
             const dy = y - gameState.player.position.y;
-            const key = `${x},${y}`;
             
-            // Movement to adjacent cells
             if (Math.abs(dx) <= 1 && Math.abs(dy) <= 1 && (dx !== 0 || dy !== 0)) {
                 movePlayer(dx, dy);
-            }
-            // Current position interactions
-            else if (dx === 0 && dy === 0) {
-                if (gameState.map?.enemies?.[key]) {
-                    startCombat(gameState.map.enemies[key]);
-                } else if (gameState.map?.resources?.[key]) {
-                    harvestResourceNode(gameState.map.resources[key]);
-                } else {
-                    // Try to purchase territory
-                    purchaseTerritory(x, y);
+            } else if (dx === 0 && dy === 0) {
+                const content = getMapCellContent(x, y);
+                if (content) {
+                    switch (content.type) {
+                        case 'enemy':
+                            startCombat(content.data);
+                            break;
+                        case 'resource':
+                            harvestResource(content.data);
+                            break;
+                        case 'hidden':
+                            discoverHidden(x, y);
+                            break;
+                    }
                 }
-            }
-            // Purchase territory at distance
-            else {
-                purchaseTerritory(x, y);
             }
         }
 
@@ -1047,68 +1097,53 @@
             
             const newX = Math.max(0, Math.min(CONFIG.MAP_SIZE - 1, gameState.player.position.x + dx));
             const newY = Math.max(0, Math.min(CONFIG.MAP_SIZE - 1, gameState.player.position.y + dy));
-            const key = `${newX},${newY}`;
             
             gameState.player.position.x = newX;
             gameState.player.position.y = newY;
             updateResources({ water: -waterCost });
             
-            // Auto-combat if moving onto enemy
-            if (gameState.map?.enemies?.[key]) {
-                setTimeout(() => startCombat(gameState.map.enemies[key]), 500);
+            const content = getMapCellContent(newX, newY);
+            if (content && content.type === 'enemy') {
+                setTimeout(() => startCombat(content.data), 500);
             }
             
             renderMap();
             saveGame();
         }
 
-        // === TERRITORY SYSTEM ===
-        function purchaseTerritory(x, y) {
-            const key = `${x},${y}`;
-            const existingTerritory = gameState.map?.territories?.[key];
-            
-            let cost = CONFIG.TERRITORY_BASE_COST;
-            
-            if (existingTerritory) {
-                if (existingTerritory.ownerId === userId) {
-                    showNotification('You already own this territory!', 'warning');
-                    return;
-                }
-                cost = Math.floor(existingTerritory.purchasePrice * CONFIG.TERRITORY_COST_MULTIPLIER);
-            }
-            
-            const ownedCount = gameState.player.territories?.length || 0;
-            cost = Math.floor(cost * Math.pow(1.2, ownedCount));
-            
-            if (gameState.resources.solari < cost) {
-                showNotification(`Need ${cost.toLocaleString()} Solari to purchase this territory!`, 'error');
+        function harvestResource(resource) {
+            if (gameState.player.energy < 20) {
+                showNotification('Not enough energy!', 'error');
                 return;
             }
             
-            if (!confirm(`Purchase territory at ${x},${y} for ${cost.toLocaleString()} Solari?`)) {
-                return;
+            gameState.player.energy -= 20;
+            let amount = Math.min(15, resource.amount);
+            
+            if (gameState.player.house === 'harkonnen') {
+                amount = Math.floor(amount * 1.2);
+            } else if (gameState.player.house === 'fremen' && resource.type === 'spice') {
+                amount = Math.floor(amount * 1.4);
             }
             
-            updateResources({ solari: -cost });
-            
-            gameState.map.territories[key] = {
-                ownerId: userId,
-                ownerName: gameState.player.name,
-                ownerColor: gameState.player.color,
-                position: { x, y },
-                purchasePrice: cost,
-                purchaseTime: Date.now()
-            };
-            
-            gameState.player.territories = gameState.player.territories || [];
-            if (!gameState.player.territories.some(t => t.x === x && t.y === y)) {
-                gameState.player.territories.push({ x, y, cost });
-            }
-            
-            showNotification(`Territory purchased at ${x},${y}!`, 'success');
+            updateResources({ [resource.type]: amount });
+            showNotification(`Harvested ${amount} ${resource.type}!`, 'success');
             
             renderMap();
-            saveGame();
+        }
+
+        function discoverHidden(x, y) {
+            const enemies = Object.values(STATIC_DATA.ENEMIES);
+            const enemy = enemies[Math.floor(Math.random() * enemies.length)];
+            const hiddenEnemy = {
+                ...enemy,
+                currentHealth: enemy.health,
+                position: { x, y },
+                id: `hidden-${x}-${y}`
+            };
+            
+            showNotification('You discovered a hidden enemy!', 'warning');
+            setTimeout(() => startCombat(hiddenEnemy), 1000);
         }
 
         // === COMBAT SYSTEM ===
@@ -1279,11 +1314,6 @@
                 
                 gameState.player.totalEnemiesDefeated++;
                 
-                const key = `${enemy.position.x},${enemy.position.y}`;
-                delete gameState.map.enemies[key];
-                
-                showDefeatPopup(`Defeated ${enemy.name}!`);
-                
                 if (enemy.boss) {
                     showNotification(`🏆 BOSS DEFEATED: ${enemy.name}!`, 'legendary', 8000);
                     sendWorldMessage(`${gameState.player.name} has defeated ${enemy.name}!`, 'boss');
@@ -1297,8 +1327,6 @@
                 const solariLoss = Math.floor(gameState.resources.solari * 0.15);
                 updateResources({ solari: -solariLoss });
                 
-                showDefeatPopup(`Defeated by ${enemy.name}! Lost ${solariLoss} Solari`);
-                
                 gameState.player.position = { ...gameState.player.basePosition };
             }
             
@@ -1310,6 +1338,221 @@
                 updateUI();
                 saveGame();
             }, 3000);
+        }
+
+        // === EMPIRE MANAGEMENT SYSTEM ===
+        function canAffordBuilding(buildingType, level = 1) {
+            const building = STATIC_DATA.BUILDINGS[buildingType];
+            if (!building) return false;
+            
+            const costs = {};
+            Object.entries(building.baseCost).forEach(([resource, amount]) => {
+                costs[resource] = Math.floor(amount * Math.pow(building.costMultiplier, level - 1));
+            });
+            
+            return Object.entries(costs).every(([resource, cost]) => 
+                gameState.resources[resource] >= cost
+            );
+        }
+
+        function purchaseBuilding(buildingType) {
+            const building = STATIC_DATA.BUILDINGS[buildingType];
+            if (!building) return false;
+            
+            if (gameState.player.level < building.unlockLevel) {
+                showNotification(`Requires level ${building.unlockLevel}!`, 'error');
+                return false;
+            }
+            
+            const currentLevel = gameState.buildings[buildingType] || 0;
+            const nextLevel = currentLevel + 1;
+            
+            if (nextLevel > building.maxLevel) {
+                showNotification(`${building.name} is already at max level!`, 'warning');
+                return false;
+            }
+            
+            if (!canAffordBuilding(buildingType, nextLevel)) {
+                showNotification(`Cannot afford ${building.name} upgrade!`, 'error');
+                return false;
+            }
+            
+            const costs = {};
+            Object.entries(building.baseCost).forEach(([resource, amount]) => {
+                costs[resource] = -Math.floor(amount * Math.pow(building.costMultiplier, nextLevel - 1));
+            });
+            
+            updateResources(costs);
+            gameState.buildings[buildingType] = nextLevel;
+            
+            showNotification(`${building.name} upgraded to level ${nextLevel}!`, 'success');
+            updateEmpireDisplay();
+            saveGame();
+            
+            return true;
+        }
+
+        function processBuildingProduction() {
+            const now = Date.now();
+            const timeDiff = Math.min(now - gameState.lastBuildingProduction, 60000); // Max 1 minute
+            
+            if (timeDiff < 1000) return; // At least 1 second
+            
+            const productionMultiplier = timeDiff / 60000; // Per minute
+            const totalProduction = {};
+            
+            Object.entries(gameState.buildings).forEach(([buildingType, level]) => {
+                if (level <= 0) return;
+                
+                const building = STATIC_DATA.BUILDINGS[buildingType];
+                if (!building) return;
+                
+                Object.entries(building.baseProduction).forEach(([resource, amount]) => {
+                    const production = amount * level * productionMultiplier;
+                    totalProduction[resource] = (totalProduction[resource] || 0) + production;
+                });
+            });
+            
+            if (Object.keys(totalProduction).length > 0) {
+                updateResources(totalProduction);
+                
+                // Show production notification every 30 seconds
+                if (timeDiff >= 30000) {
+                    const productionText = Object.entries(totalProduction)
+                        .map(([resource, amount]) => `+${Math.floor(amount)} ${resource}`)
+                        .join(', ');
+                    showNotification(`Production: ${productionText}`, 'info', 3000);
+                }
+            }
+            
+            gameState.lastBuildingProduction = now;
+        }
+
+        function updateEmpireDisplay() {
+            const empireContainer = document.getElementById('empireBuildings');
+            if (!empireContainer) return;
+            
+            empireContainer.innerHTML = Object.entries(STATIC_DATA.BUILDINGS).map(([buildingType, building]) => {
+                const currentLevel = gameState.buildings[buildingType] || 0;
+                const nextLevel = currentLevel + 1;
+                const canAfford = canAffordBuilding(buildingType, nextLevel);
+                const isUnlocked = gameState.player.level >= building.unlockLevel;
+                const atMaxLevel = currentLevel >= building.maxLevel;
+                
+                const costs = {};
+                Object.entries(building.baseCost).forEach(([resource, amount]) => {
+                    costs[resource] = Math.floor(amount * Math.pow(building.costMultiplier, nextLevel - 1));
+                });
+                
+                const production = Object.entries(building.baseProduction)
+                    .map(([resource, amount]) => `+${amount * currentLevel}/min ${resource}`)
+                    .join(', ');
+                
+                return `
+                    <div class="building-card ${currentLevel > 0 ? 'owned' : ''} ${!isUnlocked ? 'opacity-50' : ''}">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center">
+                                <span class="text-2xl mr-3">${building.icon}</span>
+                                <div>
+                                    <h4 class="font-bold">${building.name}</h4>
+                                    <span class="text-sm text-stone-400">Level ${currentLevel}/${building.maxLevel}</span>
+                                </div>
+                            </div>
+                            ${!isUnlocked ? `<span class="text-xs text-red-400">Requires Lv.${building.unlockLevel}</span>` : ''}
+                        </div>
+                        <p class="text-sm text-stone-300 mb-3">${building.description}</p>
+                        ${currentLevel > 0 ? `<p class="text-xs text-green-400 mb-3">Production: ${production}</p>` : ''}
+                        ${!atMaxLevel && isUnlocked ? `
+                            <div class="mb-3">
+                                <p class="text-xs text-stone-400 mb-2">Upgrade Cost:</p>
+                                <div class="text-xs space-x-2">
+                                    ${Object.entries(costs).map(([resource, cost]) => 
+                                        `<span class="${gameState.resources[resource] >= cost ? 'text-green-400' : 'text-red-400'}">${cost} ${resource}</span>`
+                                    ).join('')}
+                                </div>
+                            </div>
+                            <button onclick="purchaseBuilding('${buildingType}')" 
+                                    class="upgrade-button w-full" ${!canAfford ? 'disabled' : ''}>
+                                ${currentLevel === 0 ? 'Build' : 'Upgrade'}
+                            </button>
+                        ` : atMaxLevel ? `<div class="text-center text-amber-400 font-bold">MAX LEVEL</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // === RANKING SYSTEM ===
+        function calculatePlayerPower() {
+            let power = gameState.player.level * 100;
+            power += gameState.player.prestigeLevel * 5000;
+            power += (gameState.player.territories?.length || 0) * 50;
+            power += Math.floor(gameState.player.lifetimeSpice / 10);
+            power += gameState.player.totalEnemiesDefeated * 25;
+            power += Object.values(gameState.resources).reduce((sum, val) => sum + val, 0);
+            
+            return power;
+        }
+
+        function updateRankingsDisplay() {
+            const rankingsContainer = document.getElementById('rankingsContainer');
+            const topRankingsContainer = document.getElementById('topRankings');
+            
+            if (!gameState.rankings.length) {
+                if (rankingsContainer) {
+                    rankingsContainer.innerHTML = '<p class="text-stone-400 text-center">No rankings available</p>';
+                }
+                if (topRankingsContainer) {
+                    topRankingsContainer.innerHTML = '<p class="text-stone-400 text-center text-sm">Loading rankings...</p>';
+                }
+                return;
+            }
+            
+            // Top 5 for sidebar
+            if (topRankingsContainer) {
+                topRankingsContainer.innerHTML = gameState.rankings.slice(0, 5).map((player, index) => `
+                    <div class="ranking-card rank-${index + 1} flex items-center justify-between p-2 rounded">
+                        <div class="flex items-center">
+                            <span class="text-lg mr-2">${index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}</span>
+                            <div>
+                                <span class="player-color-${player.color} font-semibold text-sm">${player.name || 'Unknown'}</span>
+                                <div class="text-xs text-stone-400">P${player.prestigeLevel || 0} • Lv.${player.level}</div>
+                            </div>
+                        </div>
+                        <div class="text-right text-xs">
+                            <div class="text-amber-400 font-bold">${(player.power || 0).toLocaleString()}</div>
+                            <div class="text-stone-400">${player.territories || 0} territories</div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+            
+            // Full rankings for multiplayer tab
+            if (rankingsContainer) {
+                rankingsContainer.innerHTML = gameState.rankings.slice(0, 20).map((player, index) => `
+                    <div class="leaderboard-entry ranking-card rank-${index + 1} p-3 bg-stone-700 rounded border-l-4">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <span class="text-xl mr-3">${index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}</span>
+                                <div>
+                                    <div class="player-color-${player.color} font-bold">${player.name || 'Unknown'}</div>
+                                    <div class="text-sm text-stone-400">
+                                        P${player.prestigeLevel || 0} • Lv.${player.level} • ${STATIC_DATA.HOUSES[player.house]?.name || 'No House'}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-amber-400 font-bold text-lg">${(player.power || 0).toLocaleString()}</div>
+                                <div class="text-xs text-stone-400">
+                                    ${player.territories || 0} territories • ${player.totalEnemiesDefeated || 0} defeats
+                                </div>
+                                <div class="text-xs text-stone-400">
+                                    ${(player.lifetimeSpice || 0).toLocaleString()} spice collected
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
         }
 
         // === WORLD CHAT ===
@@ -1353,26 +1596,6 @@
         // === UTILITY FUNCTIONS ===
         function generateId() {
             return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
-        }
-
-        function getRandomPosition() {
-            return {
-                x: Math.floor(Math.random() * CONFIG.MAP_SIZE),
-                y: Math.floor(Math.random() * CONFIG.MAP_SIZE)
-            };
-        }
-
-        function weightedRandom(items, weights) {
-            const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
-            let random = Math.random() * totalWeight;
-            
-            for (let i = 0; i < items.length; i++) {
-                random -= weights[i];
-                if (random <= 0) {
-                    return items[i];
-                }
-            }
-            return items[items.length - 1];
         }
 
         function addExperience(amount) {
@@ -1430,40 +1653,20 @@
             return true;
         }
 
-        function harvestResourceNode(resource) {
-            if (gameState.player.energy < 20) {
-                showNotification('Not enough energy!', 'error');
-                return;
-            }
-            
-            gameState.player.energy -= 20;
-            const amount = Math.min(15, resource.amount);
-            resource.amount -= amount;
-            
-            let finalAmount = amount;
-            if (gameState.player.house === 'harkonnen') {
-                finalAmount = Math.floor(amount * 1.2);
-            } else if (gameState.player.house === 'fremen' && resource.type === 'spice') {
-                finalAmount = Math.floor(amount * 1.4);
-            }
-            
-            updateResources({ [resource.type]: finalAmount });
-            
-            if (resource.amount <= 0) {
-                const key = `${resource.position.x},${resource.position.y}`;
-                delete gameState.map.resources[key];
-            }
-            
-            renderMap();
-        }
-
         // === NOTIFICATIONS & POPUPS ===
         function showNotification(message, type = 'info', duration = 4000) {
+            // Remove existing notification to prevent duplicates
+            if (currentNotification) {
+                currentNotification.remove();
+                currentNotification = null;
+            }
+            
             const notification = document.createElement('div');
             notification.className = `notification ${type}`;
             notification.textContent = message;
             
             document.body.appendChild(notification);
+            currentNotification = notification;
             
             setTimeout(() => notification.classList.add('show'), 100);
             
@@ -1472,22 +1675,12 @@
                 setTimeout(() => {
                     if (document.body.contains(notification)) {
                         document.body.removeChild(notification);
+                        if (currentNotification === notification) {
+                            currentNotification = null;
+                        }
                     }
                 }, 400);
             }, duration);
-        }
-
-        function showDefeatPopup(message) {
-            const popup = document.createElement('div');
-            popup.className = 'defeat-popup';
-            popup.textContent = message;
-            document.body.appendChild(popup);
-            
-            setTimeout(() => {
-                if (document.body.contains(popup)) {
-                    document.body.removeChild(popup);
-                }
-            }, 4000);
         }
 
         function showQuotePopup(quote) {
@@ -1632,28 +1825,6 @@
             }).join('');
         }
 
-        function updateTradeOffersDisplay() {
-            const tradesContainer = document.getElementById('tradeOffersContainer');
-            if (!tradesContainer) return;
-            
-            if (!gameState.tradeOffers.length) {
-                tradesContainer.innerHTML = '<p class="text-stone-400 text-center">No trade offers</p>';
-                return;
-            }
-            
-            tradesContainer.innerHTML = gameState.tradeOffers.map(trade => `
-                <div class="bg-stone-700 p-3 rounded border">
-                    <div class="font-semibold">${trade.fromPlayerName} → You</div>
-                    <div class="text-sm text-stone-300">Offering: ${JSON.stringify(trade.offerItems)}</div>
-                    <div class="text-sm text-stone-300">Requesting: ${JSON.stringify(trade.requestItems)}</div>
-                    <div class="mt-2 space-x-2">
-                        <button class="px-3 py-1 bg-green-600 rounded text-xs">Accept</button>
-                        <button class="px-3 py-1 bg-red-600 rounded text-xs">Reject</button>
-                    </div>
-                </div>
-            `).join('');
-        }
-
         function updateUI() {
             updateResourceDisplay();
             updatePlayerStats();
@@ -1661,7 +1832,8 @@
             updateEquipmentDisplay();
             updateOnlinePlayersDisplay();
             updateWorldEventsDisplay();
-            updateTradeOffersDisplay();
+            updateEmpireDisplay();
+            updateRankingsDisplay();
         }
 
         // === GAME LOOP ===
@@ -1676,11 +1848,8 @@
                     gameState.lastEnergyRegen = Date.now();
                 }
                 
-                // Territory income
-                if (gameState.player.territories?.length > 0) {
-                    const income = gameState.player.territories.length * 5;
-                    updateResources({ solari: income });
-                }
+                // Building production
+                processBuildingProduction();
                 
                 // Auto-save
                 if (Date.now() - gameState.lastSaveTime >= CONFIG.SAVE_INTERVAL) {
@@ -1699,25 +1868,15 @@
             }, 60000);
         }
 
-        // Trading modal function (for global access)
-        function showTradingModal() {
-            const modal = document.createElement('div');
-            modal.className = 'modal-overlay';
-            modal.innerHTML = `
-                <div class="modal-content max-w-4xl">
-                    <h3 class="text-2xl font-orbitron text-amber-400 mb-4">🤝 Player Trading</h3>
-                    <p class="text-center text-stone-400 mb-6">Trading system coming soon!</p>
-                    <button class="px-4 py-2 bg-stone-600 hover:bg-stone-700 rounded" onclick="this.closest('.modal-overlay').remove()">Close</button>
-                </div>
-            `;
-            document.body.appendChild(modal);
-        }
+        // === GLOBAL FUNCTIONS ===
+        window.combatAction = combatAction;
+        window.movePlayer = movePlayer;
+        window.purchaseBuilding = purchaseBuilding;
 
         // === EVENT LISTENERS ===
         document.addEventListener('DOMContentLoaded', async () => {
             console.log("📱 DOM loaded, starting initialization...");
             
-            // Set timeout to force start offline mode if Firebase takes too long
             initializationTimeout = setTimeout(() => {
                 if (!gameState.gameInitialized && !firebaseInitialized) {
                     console.log("⏰ Timeout reached, starting offline mode");
@@ -1741,6 +1900,8 @@
                     
                     if (button.dataset.tab === 'game') {
                         renderMap();
+                    } else if (button.dataset.tab === 'empire') {
+                        updateEmpireDisplay();
                     }
                 });
             });
@@ -1777,9 +1938,9 @@
                         break;
                     case ' ':
                         e.preventDefault();
-                        const key = `${gameState.player.position.x},${gameState.player.position.y}`;
-                        if (gameState.map?.resources?.[key]) {
-                            harvestResourceNode(gameState.map.resources[key]);
+                        const content = getMapCellContent(gameState.player.position.x, gameState.player.position.y);
+                        if (content && content.type === 'resource') {
+                            harvestResource(content.data);
                         }
                         break;
                 }
@@ -1806,12 +1967,6 @@
                 });
             }
         });
-
-        // Global functions for onclick handlers
-        window.combatAction = combatAction;
-        window.movePlayer = movePlayer;
-        window.showTradingModal = showTradingModal;
-        window.purchaseTerritory = purchaseTerritory;
     </script>
 
     <!-- Loading Screen -->
@@ -1850,7 +2005,6 @@
                     <span class="text-stone-400">Prestige:</span>
                     <span id="playerPrestige" class="font-bold text-purple-400 prestige-glow">0</span>
                 </div>
-                <button onclick="showTradingModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded font-semibold">🤝 Trade</button>
             </div>
         </div>
     </header>
@@ -1860,7 +2014,7 @@
         <div class="flex space-x-2">
             <button class="tab-button active px-6 py-3 text-sm font-medium border-b-2 border-transparent hover:text-amber-400" data-tab="game">🏜️ Desert World</button>
             <button class="tab-button px-6 py-3 text-sm font-medium border-b-2 border-transparent hover:text-amber-400" data-tab="character">👤 Character</button>
-            <button class="tab-button px-6 py-3 text-sm font-medium border-b-2 border-transparent hover:text-amber-400" data-tab="empire">🏗️ Empire</button>
+            <button class="tab-button px-6 py-3 text-sm font-medium border-b-2 border-transparent hover:text-amber-400" data-tab="empire">🏗️ Spice Empire</button>
             <button class="tab-button px-6 py-3 text-sm font-medium border-b-2 border-transparent hover:text-amber-400" data-tab="multiplayer">🌍 Multiplayer</button>
         </div>
     </nav>
@@ -1934,6 +2088,14 @@
                 </div>
             </div>
             
+            <!-- Top Rankings -->
+            <div class="bg-gradient-to-br from-amber-900 to-stone-800 p-4 rounded-lg border border-amber-500">
+                <h3 class="text-lg font-semibold text-amber-300 mb-3 font-orbitron">🏆 Top Players</h3>
+                <div id="topRankings" class="space-y-1 text-sm">
+                    <p class="text-stone-400 text-center">Loading rankings...</p>
+                </div>
+            </div>
+            
             <!-- World Events -->
             <div class="bg-purple-800 p-4 rounded-lg border border-purple-500">
                 <h3 class="text-lg font-semibold text-purple-300 mb-3 font-orbitron">🌟 World Events</h3>
@@ -1950,24 +2112,22 @@
                 <div class="flex items-center justify-between mb-6">
                     <h2 class="text-3xl font-orbitron text-amber-400">🏜️ The Great Desert of Arrakis</h2>
                     <div class="text-lg text-stone-300">
-                        Position: <span id="mapPlayerCoords" class="text-amber-300 font-bold">100,100</span>
+                        Position: <span id="mapPlayerCoords" class="text-amber-300 font-bold">250,250</span>
                     </div>
                 </div>
                 
                 <div class="mb-8 text-center">
                     <div class="text-sm text-stone-400 mb-4 p-3 bg-stone-800 rounded-lg border border-stone-600">
                         <span class="font-semibold text-amber-400">Controls:</span> 
-                        WASD/Arrow Keys to move • Space to harvest • Click cells to interact/purchase territory • Auto-combat when moving onto enemies
+                        WASD/Arrow Keys to move • Space to harvest • Click cells to interact • Auto-combat when moving onto enemies
                     </div>
                     <div id="uiMapGrid" class="map-grid mx-auto"></div>
                     <div class="mt-4 text-sm text-stone-400 flex flex-wrap justify-center gap-4">
-                        <span class="flex items-center"><span class="text-amber-400 mr-1">👤</span> You</span>
-                        <span class="flex items-center"><span class="text-purple-400 mr-1">👤</span> Other Players</span>
+                        <span class="flex items-center"><span class="text-amber-400 mr-1">★</span> You</span>
+                        <span class="flex items-center"><span class="text-purple-400 mr-1">◆</span> Other Players</span>
                         <span class="flex items-center"><span class="text-red-400 mr-1">👹</span> Enemies</span>
-                        <span class="flex items-center"><span class="text-orange-400 mr-1">✨</span> Spice</span>
-                        <span class="flex items-center"><span class="text-blue-400 mr-1">💧</span> Water</span>
-                        <span class="flex items-center"><span class="text-purple-400 mr-1">🌟</span> World Events</span>
-                        <span class="flex items-center"><span class="text-green-400 mr-1">⬜</span> Territory</span>
+                        <span class="flex items-center"><span class="text-green-400 mr-1">◈</span> Resources</span>
+                        <span class="flex items-center"><span class="text-gray-400 mr-1">?</span> Hidden</span>
                     </div>
                 </div>
             </div>
@@ -2028,7 +2188,11 @@
             <!-- Empire Tab -->
             <div id="empireTab" class="tab-content hidden flex-1 p-6 overflow-y-auto">
                 <h2 class="text-3xl font-orbitron text-amber-400 mb-6">🏗️ Spice Empire Management</h2>
-                <p class="text-center text-stone-400">Empire building features coming soon!</p>
+                <p class="text-center text-stone-300 mb-8">Build and upgrade your spice empire to generate passive income!</p>
+                
+                <div id="empireBuildings" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Buildings will be populated by JavaScript -->
+                </div>
             </div>
             
             <!-- Multiplayer Tab -->
@@ -2053,19 +2217,11 @@
                         <div id="onlinePlayersList" class="space-y-2 max-h-80 overflow-y-auto"></div>
                     </div>
                     
-                    <!-- Trade Offers -->
-                    <div class="bg-stone-800 p-6 rounded-lg border border-stone-600">
-                        <h3 class="text-xl font-semibold mb-4 text-amber-300">🤝 Trade Offers</h3>
-                        <div id="tradeOffersContainer" class="space-y-2 max-h-60 overflow-y-auto">
-                            <p class="text-stone-400 text-center">No trade offers</p>
-                        </div>
-                    </div>
-                    
                     <!-- Rankings -->
-                    <div class="bg-stone-800 p-6 rounded-lg border border-stone-600">
-                        <h3 class="text-xl font-semibold mb-4 text-amber-300">🏆 Rankings</h3>
-                        <div id="rankingsContainer" class="space-y-2 max-h-60 overflow-y-auto">
-                            <p class="text-stone-400 text-center">Rankings coming soon!</p>
+                    <div class="bg-stone-800 p-6 rounded-lg border border-stone-600 lg:col-span-2">
+                        <h3 class="text-xl font-semibold mb-4 text-amber-300">🏆 Global Rankings</h3>
+                        <div id="rankingsContainer" class="space-y-2 max-h-96 overflow-y-auto">
+                            <p class="text-stone-400 text-center">Loading rankings...</p>
                         </div>
                     </div>
                 </div>
