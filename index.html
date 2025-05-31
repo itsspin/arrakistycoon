@@ -207,432 +207,47 @@
             text-shadow: 0 0 10px currentColor;
         }
         @keyframes prestige-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+
+        .inventory-slot {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #374151, #4b5563);
+            border: 2px solid #6b7280;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 1.5rem;
+        }
+        .inventory-slot:hover {
+            border-color: #f59e0b;
+            transform: scale(1.05);
+        }
     </style>
 </head>
 <body class="bg-stone-950 text-stone-300 antialiased">
 
     <script type="module">
-// === FIREBASE CONFIGURATION ===
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, query, orderBy, limit, updateDoc, increment, arrayUnion, serverTimestamp, addDoc, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        // === FIREBASE CONFIGURATION ===
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, query, orderBy, limit, updateDoc, increment, arrayUnion, serverTimestamp, addDoc, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-// Firebase config
-const firebaseConfig = {
-    apiKey: "AIzaSyB7Zz3fxQtfSuk3tuc2UimeVNoX7M_5sIk",
-    authDomain: "arrakis-spice-empire.firebaseapp.com",
-    projectId: "arrakis-spice-empire",
-    storageBucket: "arrakis-spice-empire.firebasestorage.app",
-    messagingSenderId: "685304270859",
-    appId: "1:685304270859:web:2d20f753db72a2de61f70e"
-};
-
-// Firebase variables - declared once only
-let app, auth, db, userId;
-
-console.log("🔥 Firebase configuration loaded");
-
-// === FIREBASE FUNCTIONS ===
-async function initializeFirebase() {
-    console.log("🚀 Starting Firebase test...");
-    
-    try {
-        // Test 1: Can we create the Firebase app?
-        console.log("📱 Creating Firebase app...");
-        app = initializeApp(firebaseConfig);
-        console.log("✅ Firebase app created successfully");
-        
-        // Test 2: Can we get auth?
-        console.log("🔐 Getting auth...");
-        auth = getAuth(app);
-        console.log("✅ Auth retrieved successfully");
-        
-        // Test 3: Can we get firestore?
-        console.log("💾 Getting Firestore...");
-        db = getFirestore(app);
-        console.log("✅ Firestore retrieved successfully");
-        
-        // Test 4: Force hide loading screen after 3 seconds
-        setTimeout(() => {
-            console.log("⏰ 3 seconds passed - hiding loading screen");
-            const loadingScreen = document.getElementById('loadingScreen');
-            if (loadingScreen) {
-                loadingScreen.style.display = 'none';
-                showNotification("Debug: Loading screen hidden after 3 seconds", 'info');
-            }
-        }, 3000);
-        
-        // Test 5: Try authentication
-        console.log("🔑 Attempting anonymous sign in...");
-        const userCredential = await signInAnonymously(auth);
-        console.log("✅ Anonymous sign in successful:", userCredential.user.uid);
-        
-        // If we get here, Firebase is working
-        userId = userCredential.user.uid;
-        gameState.player.id = userId;
-        showNameSelectionModal();
-        
-    } catch (error) {
-        console.error("❌ Firebase test failed:", error);
-        console.error("Error details:", error.code, error.message);
-        
-        // Hide loading screen on error
-        const loadingScreen = document.getElementById('loadingScreen');
-        if (loadingScreen) {
-            loadingScreen.style.display = 'none';
-        }
-        
-        showNotification(`Firebase Error: ${error.code} - ${error.message}`, 'error', 10000);
-    }
-}
-
-async function saveGame() {
-    if (!db || !userId) return;
-    
-    try {
-        const playerData = {
-            ...gameState.player,
-            resources: gameState.resources,
-            equipment: gameState.equipment,
-            inventory: gameState.inventory,
-            buildings: gameState.buildings,
-            lastSave: serverTimestamp(),
-            lastActive: serverTimestamp()
+        // Firebase config
+        const firebaseConfig = {
+            apiKey: "AIzaSyB7Zz3fxQtfSuk3tuc2UimeVNoX7M_5sIk",
+            authDomain: "arrakis-spice-empire.firebaseapp.com",
+            projectId: "arrakis-spice-empire",
+            storageBucket: "arrakis-spice-empire.firebasestorage.app",
+            messagingSenderId: "685304270859",
+            appId: "1:685304270859:web:2d20f753db72a2de61f70e"
         };
-        
-        await setDoc(doc(db, 'players', userId), playerData);
-        
-        // Update player position for map display
-        await setDoc(doc(db, 'playerPositions', userId), {
-            position: gameState.player.position,
-            name: gameState.player.name,
-            color: gameState.player.color,
-            level: gameState.player.level,
-            prestigeLevel: gameState.player.prestigeLevel,
-            house: gameState.player.house,
-            lastUpdate: serverTimestamp()
-        });
-        
-        gameState.lastSaveTime = Date.now();
-    } catch (error) {
-        console.error('Save failed:', error);
-    }
-}
 
-async function loadGame() {
-    if (!db || !userId) return;
-    
-    try {
-        const docRef = doc(db, 'players', userId);
-        const docSnap = await getDoc(docRef);
-        
-        if (docSnap.exists()) {
-            const data = docSnap.data();
-            Object.assign(gameState.player, data);
-            gameState.resources = data.resources || gameState.resources;
-            gameState.equipment = data.equipment || gameState.equipment;
-            gameState.inventory = data.inventory || gameState.inventory;
-            gameState.buildings = data.buildings || gameState.buildings;
-            
-            if (!gameState.player.name) {
-                showNameSelectionModal();
-            } else {
-                completeGameInitialization();
-            }
-        } else {
-            showNameSelectionModal();
-        }
-    } catch (error) {
-        console.error('Load failed:', error);
-        showNameSelectionModal();
-    }
-}
-
-async function startMultiplayerSync() {
-    // Listen for other players
-    const playersQuery = query(collection(db, 'playerPositions'), orderBy('lastUpdate', 'desc'), limit(50));
-    onSnapshot(playersQuery, (snapshot) => {
-        gameState.onlinePlayers = {};
-        snapshot.forEach((doc) => {
-            if (doc.id !== userId) {
-                gameState.onlinePlayers[doc.id] = doc.data();
-            }
-        });
-        updateOnlinePlayersDisplay();
-        renderMap();
-    });
-
-    // Listen for world chat
-    const chatQuery = query(collection(db, 'worldChat'), orderBy('timestamp', 'desc'), limit(50));
-    onSnapshot(chatQuery, (snapshot) => {
-        const messages = [];
-        snapshot.forEach((doc) => {
-            messages.unshift(doc.data());
-        });
-        updateWorldChat(messages);
-    });
-
-    // Listen for world events
-    const eventsQuery = query(collection(db, 'worldEvents'), where('endTime', '>', new Date()));
-    onSnapshot(eventsQuery, (snapshot) => {
-        gameState.worldEvents = [];
-        snapshot.forEach((doc) => {
-            gameState.worldEvents.push({ id: doc.id, ...doc.data() });
-        });
-        updateWorldEventsDisplay();
-        renderMap();
-    });
-
-    // Listen for trade offers
-    const tradesQuery = query(collection(db, 'tradeOffers'), where('status', '==', 'open'));
-    onSnapshot(tradesQuery, (snapshot) => {
-        gameState.tradeOffers = [];
-        snapshot.forEach((doc) => {
-            const trade = { id: doc.id, ...doc.data() };
-            if (trade.toPlayerId === userId || trade.fromPlayerId === userId) {
-                gameState.tradeOffers.push(trade);
-            }
-        });
-        updateTradeOffersDisplay();
-    });
-}
-
-function completeGameInitialization() {
-    console.log("🎮 Completing game initialization...");
-    
-    gameState.gameInitialized = true;
-    
-    // Hide loading screen
-    const loadingScreen = document.getElementById('loadingScreen');
-    if (loadingScreen) {
-        console.log("✅ Hiding loading screen");
-        loadingScreen.style.display = 'none';
-    } else {
-        console.log("❌ Loading screen element not found!");
-    }
-    
-    // Initialize map
-    initializeMap();
-    
-    // Start game loop
-    startGameLoop();
-    
-    // Initial UI update
-    updateUI();
-    renderMap();
-    
-    // Save initial state
-    saveGame();
-    
-    showNotification(`Welcome to Arrakis, ${gameState.player.name}!`, 'success', 6000);
-    showQuotePopup('"The beginning is a very delicate time..."');
-}
-
-async function loadGame() {
-    console.log("Loading game data...");
-    
-    if (!db || !userId) {
-        console.log("No database or user ID, showing name selection");
-        showNameSelectionModal();
-        return;
-    }
-    
-    try {
-        console.log("Fetching player document...");
-        const docRef = doc(db, 'players', userId);
-        const docSnap = await getDoc(docRef);
-        
-        if (docSnap.exists()) {
-            console.log("Player data found, loading...");
-            const data = docSnap.data();
-            Object.assign(gameState.player, data);
-            gameState.resources = data.resources || gameState.resources;
-            gameState.equipment = data.equipment || gameState.equipment;
-            gameState.inventory = data.inventory || gameState.inventory;
-            gameState.buildings = data.buildings || gameState.buildings;
-            
-            if (!gameState.player.name) {
-                console.log("No player name, showing name selection");
-                showNameSelectionModal();
-            } else {
-                console.log("Player data loaded successfully");
-                completeGameInitialization();
-            }
-        } else {
-            console.log("No existing player data, showing name selection");
-            showNameSelectionModal();
-        }
-    } catch (error) {
-        console.error('Load failed:', error);
-        showNotification('Failed to load game data. Starting fresh.', 'warning');
-        showNameSelectionModal();
-    }
-}
-        
-// Add this new function for offline mode
-function startOfflineMode() {
-    console.log("Starting offline mode...");
-    firebaseInitialized = false;
-    
-    // Check if player already has a name in localStorage
-    const savedName = localStorage.getItem('arrakis_player_name');
-    const savedColor = localStorage.getItem('arrakis_player_color');
-    const savedHouse = localStorage.getItem('arrakis_player_house');
-    
-    if (savedName && savedColor && savedHouse) {
-        gameState.player.name = savedName;
-        gameState.player.color = savedColor;
-        gameState.player.house = savedHouse;
-        completeGameInitialization();
-    } else {
-        showNameSelectionModal();
-    }
-}
-
-async function saveGame() {
-    // Save to localStorage as backup
-    try {
-        localStorage.setItem('arrakis_gamestate', JSON.stringify({
-            player: gameState.player,
-            resources: gameState.resources,
-            equipment: gameState.equipment,
-            inventory: gameState.inventory,
-            buildings: gameState.buildings
-        }));
-        
-        if (gameState.player.name) {
-            localStorage.setItem('arrakis_player_name', gameState.player.name);
-            localStorage.setItem('arrakis_player_color', gameState.player.color);
-            if (gameState.player.house) {
-                localStorage.setItem('arrakis_player_house', gameState.player.house);
-            }
-        }
-    } catch (error) {
-        console.error('Local save failed:', error);
-    }
-    
-    if (!db || !userId || !firebaseInitialized) {
-        console.log("Firebase not available, skipping cloud save");
-        return;
-    }
-    
-    try {
-        const playerData = {
-            ...gameState.player,
-            resources: gameState.resources,
-            equipment: gameState.equipment,
-            inventory: gameState.inventory,
-            buildings: gameState.buildings,
-            lastSave: serverTimestamp(),
-            lastActive: serverTimestamp()
-        };
-        
-        await setDoc(doc(db, 'players', userId), playerData);
-        
-        // Update player position for map display
-        await setDoc(doc(db, 'playerPositions', userId), {
-            position: gameState.player.position,
-            name: gameState.player.name,
-            color: gameState.player.color,
-            level: gameState.player.level,
-            prestigeLevel: gameState.player.prestigeLevel,
-            house: gameState.player.house,
-            lastUpdate: serverTimestamp()
-        });
-        
-        gameState.lastSaveTime = Date.now();
-        console.log("Game saved to cloud successfully");
-    } catch (error) {
-        console.error('Cloud save failed:', error);
-    }
-}
-
-// Update the completeGameInitialization function to ensure loading screen is hidden
-function completeGameInitialization() {
-    console.log("Completing game initialization...");
-    
-    gameState.gameInitialized = true;
-    
-    // Hide loading screen - THIS IS CRITICAL
-    const loadingScreen = document.getElementById('loadingScreen');
-    if (loadingScreen) {
-        console.log("Hiding loading screen");
-        loadingScreen.style.display = 'none';
-    } else {
-        console.log("Loading screen element not found!");
-    }
-    
-    // Rest of your existing function...
-    // Initialize map
-    console.log("Initializing map...");
-    initializeMap();
-    
-    // Start game loop
-    console.log("Starting game loop...");
-    startGameLoop();
-    
-    // Initial UI update
-    console.log("Updating UI...");
-    updateUI();
-    renderMap();
-    
-    // Save initial state
-    saveGame();
-    
-    showNotification(`Welcome to Arrakis, ${gameState.player.name}!`, 'success', 6000);
-    showQuotePopup('"The beginning is a very delicate time..."');
-    
-    console.log("Game initialization complete!");
-}
-
-// Update house selection to save to localStorage
-function selectHouse(houseId) {
-    const house = STATIC_DATA.HOUSES[houseId];
-    gameState.player.house = houseId;
-    
-    // Save to localStorage
-    localStorage.setItem('arrakis_player_house', houseId);
-    
-    // Apply starting bonuses
-    if (house.startingBonus.solari) {
-        gameState.resources.solari += house.startingBonus.solari;
-    }
-    if (house.startingBonus.plasteel) {
-        gameState.resources.plasteel += house.startingBonus.plasteel;
-    }
-    if (house.startingBonus.water) {
-        gameState.resources.water += house.startingBonus.water;
-    }
-    if (house.startingBonus.spice) {
-        gameState.resources.spice += house.startingBonus.spice;
-    }
-    if (house.startingBonus.xp) {
-        addExperience(house.startingBonus.xp);
-    }
-    if (house.startingBonus.attack) {
-        gameState.player.attack += house.startingBonus.attack;
-    }
-    
-    showNotification(`Joined ${house.name}! ${house.description}`, 'legendary', 8000);
-    showQuotePopup(`"Welcome to ${house.name}, ${gameState.player.name}. May your enemies know fear."`);
-}
-
-// Update the name confirmation in showNameSelectionModal
-// Replace the confirmBtn click handler with this:
-confirmBtn.addEventListener('click', async () => {
-    const name = nameInput.value.trim();
-    if (name.length >= 2) {
-        gameState.player.name = name;
-        gameState.player.color = selectedColor;
-        
-        // Save to localStorage immediately
-        localStorage.setItem('arrakis_player_name', name);
-        localStorage.setItem('arrakis_player_color', selectedColor);
-        
-        document.body.removeChild(modal);
-        showHouseSelection();
-    }
-});
+        // Firebase variables
+        let app, auth, db, userId;
+        let firebaseInitialized = false;
 
         // === GAME CONSTANTS ===
         const CONFIG = {
@@ -644,7 +259,7 @@ confirmBtn.addEventListener('click', async () => {
             SAVE_INTERVAL: 10000,
             CHAT_UPDATE_INTERVAL: 3000,
             PLAYER_UPDATE_INTERVAL: 5000,
-            WORLD_EVENT_INTERVAL: 120000, // 2 minutes
+            WORLD_EVENT_INTERVAL: 120000,
             XP_BASE: 100,
             XP_FACTOR: 1.4,
             TERRITORY_BASE_COST: 1000,
@@ -740,78 +355,6 @@ confirmBtn.addEventListener('click', async () => {
                     boss: true, level: 25, legendary: true, spawnChance: 0.005, description: "The Great Sandworm. Maker of spice."
                 }
             },
-            BUILDINGS: {
-                spiceRefinery: { 
-                    name: "Spice Refinery", icon: "🏭", maxLevel: 25, 
-                    baseCost: { solari: 500, plasteel: 30 }, costFactor: 1.6,
-                    production: { type: 'process', input: 'spice', output: 'melange', ratio: 0.15 },
-                    description: "Converts raw spice into pure melange."
-                },
-                energyPlant: {
-                    name: "Energy Plant", icon: "⚡", maxLevel: 20,
-                    baseCost: { solari: 800, plasteel: 50, rareMaterials: 5 }, costFactor: 1.8,
-                    production: { type: 'energy', rate: 1 },
-                    description: "Increases energy regeneration rate.",
-                    unlock: CONFIG.ENERGY_PRODUCTION_UNLOCK_LEVEL
-                },
-                harvestor: { 
-                    name: "Spice Harvestor", icon: "⛏️", maxLevel: 30, 
-                    baseCost: { solari: 1200, plasteel: 100 }, costFactor: 1.7,
-                    production: { type: 'generate', output: 'spice', rate: 3 },
-                    description: "Automated spice extraction."
-                },
-                waterReclamator: { 
-                    name: "Water Reclamator", icon: "💧", maxLevel: 15, 
-                    baseCost: { solari: 600, plasteel: 40 }, costFactor: 1.5,
-                    production: { type: 'generate', output: 'water', rate: 0.8 },
-                    description: "Recycles moisture from the atmosphere."
-                },
-                plasteelForge: {
-                    name: "Plasteel Forge", icon: "🔨", maxLevel: 20,
-                    baseCost: { solari: 1000, water: 100 }, costFactor: 1.6,
-                    production: { type: 'generate', output: 'plasteel', rate: 1.5 },
-                    description: "Produces high-grade plasteel."
-                },
-                bank: { 
-                    name: "CHOAM Bank", icon: "🏦", maxLevel: 15, 
-                    baseCost: { solari: 2000, plasteel: 80 }, costFactor: 2.0,
-                    effect: 'interest', description: "Generates passive Solari income."
-                },
-                researchLab: { 
-                    name: "Mentat School", icon: "🧠", maxLevel: 20, 
-                    baseCost: { solari: 2500, plasteel: 200, melange: 15 }, costFactor: 2.2,
-                    effect: 'research', description: "Unlocks advanced technologies."
-                },
-                marketplace: { 
-                    name: "Spice Exchange", icon: "📈", maxLevel: 15, 
-                    baseCost: { solari: 1500, plasteel: 60 }, costFactor: 1.9,
-                    effect: 'trading', description: "Improves trade efficiency."
-                },
-                sietchTabr: {
-                    name: "Sietch Tabr", icon: "🏔️", maxLevel: 10,
-                    baseCost: { solari: 8000, water: 1500, melange: 50 }, costFactor: 3.0,
-                    effect: 'prestige', description: "Sacred Fremen stronghold. Required for prestige."
-                },
-                // Tycoon Buildings (High-end power generation)
-                spiceMegaRefinery: {
-                    name: "Spice Mega-Refinery", icon: "🏭", maxLevel: 10,
-                    baseCost: { solari: 50000, plasteel: 1000, melange: 100, rareMaterials: 50 }, costFactor: 2.5,
-                    production: { type: 'generate', output: 'melange', rate: 15 },
-                    tycoon: true, unlock: 15, description: "Massive industrial spice processing complex."
-                },
-                orbitalHarvester: {
-                    name: "Orbital Harvester", icon: "🛰️", maxLevel: 5,
-                    baseCost: { solari: 100000, plasteel: 2000, rareMaterials: 100 }, costFactor: 3.0,
-                    production: { type: 'generate', output: 'rareMaterials', rate: 8 },
-                    tycoon: true, unlock: 20, description: "Space-based resource extraction platform."
-                },
-                economicImperium: {
-                    name: "Economic Imperium", icon: "👑", maxLevel: 3,
-                    baseCost: { solari: 500000, melange: 500, rareMaterials: 200 }, costFactor: 4.0,
-                    production: { type: 'generate', output: 'solari', rate: 1000 },
-                    tycoon: true, unlock: 25, description: "Ultimate economic dominance structure."
-                }
-            },
             ITEMS: {
                 crysknife: { name: "Crysknife", icon: "🗡️", type: "weapon", attack: 30, rarity: "legendary", description: "Sacred Fremen blade made from sandworm tooth.", dropChance: 0.15 },
                 maula: { name: "Maula Pistol", icon: "🔫", type: "weapon", attack: 22, rarity: "rare", description: "Spring-loaded dart gun used in shield combat.", dropChance: 0.25 },
@@ -830,28 +373,28 @@ confirmBtn.addEventListener('click', async () => {
                     description: "A massive spice deposit has been discovered!",
                     icon: "✨",
                     rewards: { spice: 500, melange: 25 },
-                    duration: 300000 // 5 minutes
+                    duration: 300000
                 },
                 {
                     name: "Sandstorm",
                     description: "A great sandstorm sweeps across the desert!",
                     icon: "🌪️",
                     effect: "energy_drain",
-                    duration: 180000 // 3 minutes
+                    duration: 180000
                 },
                 {
                     name: "Guild Heighliner",
                     description: "A Guild ship has crashed, scattering rare materials!",
                     icon: "🚀",
                     rewards: { rareMaterials: 50, melange: 15 },
-                    duration: 600000 // 10 minutes
+                    duration: 600000
                 },
                 {
                     name: "Fremen Gathering",
                     description: "The Fremen offer knowledge and resources to worthy allies!",
                     icon: "🏔️",
                     rewards: { water: 200, xp: 500 },
-                    duration: 240000 // 4 minutes
+                    duration: 240000
                 },
                 {
                     name: "Imperial Raid",
@@ -859,7 +402,7 @@ confirmBtn.addEventListener('click', async () => {
                     icon: "⚔️",
                     effect: "combat_boost",
                     rewards: { solari: 1000, rareMaterials: 20 },
-                    duration: 420000 // 7 minutes
+                    duration: 420000
                 }
             ]
         };
@@ -887,73 +430,102 @@ confirmBtn.addEventListener('click', async () => {
             lastEnergyRegen: Date.now(),
             onlinePlayers: {},
             worldEvents: [],
-            tradeOffers: []
+            tradeOffers: [],
+            map: { enemies: {}, resources: {}, territories: {} }
         };
 
         // === FIREBASE FUNCTIONS ===
-let firebaseInitialized = false;
-let initializationTimeout;
-
-async function initializeFirebase() {
-    console.log("Starting Firebase initialization...");
-    
-    // Set a timeout to fallback to offline mode
-    initializationTimeout = setTimeout(() => {
-        if (!firebaseInitialized) {
-            console.warn("Firebase initialization timed out, starting offline mode");
-            showNotification("Connection timeout. Starting in offline mode.", 'warning');
-            startOfflineMode();
-        }
-    }, 10000); // 10 second timeout
-    
-    try {
-        console.log("Initializing Firebase app...");
-        app = initializeApp(firebaseConfig);
-        
-        console.log("Getting Auth instance...");
-        auth = getAuth(app);
-        
-        console.log("Getting Firestore instance...");
-        db = getFirestore(app);
-        
-        console.log("Setting up auth state listener...");
-        onAuthStateChanged(auth, (user) => {
-            console.log("Auth state changed:", user ? "User found" : "No user");
+        async function initializeFirebase() {
+            console.log("🚀 Starting Firebase initialization...");
             
-            clearTimeout(initializationTimeout);
-            firebaseInitialized = true;
-            
-            if (user) {
-                console.log("User authenticated:", user.uid);
-                userId = user.uid;
-                gameState.player.id = userId;
-                loadGame();
-                startMultiplayerSync();
-            } else {
-                console.log("No user, signing in anonymously...");
-                signInAnonymously(auth).catch((error) => {
-                    console.error("Anonymous sign in failed:", error);
-                    showNotification("Authentication failed. Starting offline mode.", 'error');
-                    startOfflineMode();
+            try {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                
+                console.log("✅ Firebase app initialized");
+                
+                // Set up auth state listener
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        console.log("✅ User authenticated:", user.uid);
+                        userId = user.uid;
+                        gameState.player.id = userId;
+                        firebaseInitialized = true;
+                        loadGame();
+                        startMultiplayerSync();
+                    } else {
+                        console.log("🔑 No user, signing in anonymously...");
+                        signInAnonymously(auth).catch((error) => {
+                            console.error("❌ Anonymous sign in failed:", error);
+                            startOfflineMode();
+                        });
+                    }
                 });
+                
+            } catch (error) {
+                console.error("❌ Firebase initialization failed:", error);
+                startOfflineMode();
             }
-        }, (error) => {
-            console.error("Auth state change error:", error);
-            clearTimeout(initializationTimeout);
-            showNotification("Authentication error. Starting offline mode.", 'error');
-            startOfflineMode();
-        });
-        
-    } catch (error) {
-        console.error("Firebase initialization failed:", error);
-        clearTimeout(initializationTimeout);
-        showNotification("Failed to connect to game servers. Starting offline mode.", 'error');
-        startOfflineMode();
-    }
-}
+        }
+
+        function startOfflineMode() {
+            console.log("📴 Starting offline mode...");
+            firebaseInitialized = false;
+            
+            // Try to load from localStorage
+            try {
+                const savedData = localStorage.getItem('arrakis_gamestate');
+                if (savedData) {
+                    const data = JSON.parse(savedData);
+                    Object.assign(gameState.player, data.player);
+                    gameState.resources = data.resources || gameState.resources;
+                    gameState.equipment = data.equipment || gameState.equipment;
+                    gameState.inventory = data.inventory || gameState.inventory;
+                    gameState.buildings = data.buildings || gameState.buildings;
+                }
+            } catch (error) {
+                console.error("Failed to load local data:", error);
+            }
+            
+            const savedName = localStorage.getItem('arrakis_player_name');
+            const savedColor = localStorage.getItem('arrakis_player_color');
+            const savedHouse = localStorage.getItem('arrakis_player_house');
+            
+            if (savedName && savedColor && savedHouse) {
+                gameState.player.name = savedName;
+                gameState.player.color = savedColor;
+                gameState.player.house = savedHouse;
+                completeGameInitialization();
+            } else {
+                showNameSelectionModal();
+            }
+        }
 
         async function saveGame() {
-            if (!db || !userId) return;
+            // Always save to localStorage
+            try {
+                localStorage.setItem('arrakis_gamestate', JSON.stringify({
+                    player: gameState.player,
+                    resources: gameState.resources,
+                    equipment: gameState.equipment,
+                    inventory: gameState.inventory,
+                    buildings: gameState.buildings
+                }));
+                
+                if (gameState.player.name) {
+                    localStorage.setItem('arrakis_player_name', gameState.player.name);
+                    localStorage.setItem('arrakis_player_color', gameState.player.color);
+                    if (gameState.player.house) {
+                        localStorage.setItem('arrakis_player_house', gameState.player.house);
+                    }
+                }
+            } catch (error) {
+                console.error('Local save failed:', error);
+            }
+            
+            // Save to Firebase if available
+            if (!db || !userId || !firebaseInitialized) return;
             
             try {
                 const playerData = {
@@ -981,18 +553,25 @@ async function initializeFirebase() {
                 
                 gameState.lastSaveTime = Date.now();
             } catch (error) {
-                console.error('Save failed:', error);
+                console.error('Cloud save failed:', error);
             }
         }
 
         async function loadGame() {
-            if (!db || !userId) return;
+            console.log("📥 Loading game data...");
+            
+            if (!db || !userId) {
+                console.log("No database or user ID, showing name selection");
+                showNameSelectionModal();
+                return;
+            }
             
             try {
                 const docRef = doc(db, 'players', userId);
                 const docSnap = await getDoc(docRef);
                 
                 if (docSnap.exists()) {
+                    console.log("✅ Player data found, loading...");
                     const data = docSnap.data();
                     Object.assign(gameState.player, data);
                     gameState.resources = data.resources || gameState.resources;
@@ -1006,61 +585,69 @@ async function initializeFirebase() {
                         completeGameInitialization();
                     }
                 } else {
+                    console.log("No existing player data, showing name selection");
                     showNameSelectionModal();
                 }
             } catch (error) {
                 console.error('Load failed:', error);
+                showNotification('Failed to load game data. Starting fresh.', 'warning');
                 showNameSelectionModal();
             }
         }
 
         async function startMultiplayerSync() {
-            // Listen for other players
-            const playersQuery = query(collection(db, 'playerPositions'), orderBy('lastUpdate', 'desc'), limit(50));
-            onSnapshot(playersQuery, (snapshot) => {
-                gameState.onlinePlayers = {};
-                snapshot.forEach((doc) => {
-                    if (doc.id !== userId) {
-                        gameState.onlinePlayers[doc.id] = doc.data();
-                    }
+            if (!db) return;
+            
+            try {
+                // Listen for other players
+                const playersQuery = query(collection(db, 'playerPositions'), orderBy('lastUpdate', 'desc'), limit(50));
+                onSnapshot(playersQuery, (snapshot) => {
+                    gameState.onlinePlayers = {};
+                    snapshot.forEach((doc) => {
+                        if (doc.id !== userId) {
+                            gameState.onlinePlayers[doc.id] = doc.data();
+                        }
+                    });
+                    updateOnlinePlayersDisplay();
+                    renderMap();
                 });
-                updateOnlinePlayersDisplay();
-                renderMap();
-            });
 
-            // Listen for world chat
-            const chatQuery = query(collection(db, 'worldChat'), orderBy('timestamp', 'desc'), limit(50));
-            onSnapshot(chatQuery, (snapshot) => {
-                const messages = [];
-                snapshot.forEach((doc) => {
-                    messages.unshift(doc.data());
+                // Listen for world chat
+                const chatQuery = query(collection(db, 'worldChat'), orderBy('timestamp', 'desc'), limit(50));
+                onSnapshot(chatQuery, (snapshot) => {
+                    const messages = [];
+                    snapshot.forEach((doc) => {
+                        messages.unshift(doc.data());
+                    });
+                    updateWorldChat(messages);
                 });
-                updateWorldChat(messages);
-            });
 
-            // Listen for world events
-            const eventsQuery = query(collection(db, 'worldEvents'), where('endTime', '>', new Date()));
-            onSnapshot(eventsQuery, (snapshot) => {
-                gameState.worldEvents = [];
-                snapshot.forEach((doc) => {
-                    gameState.worldEvents.push({ id: doc.id, ...doc.data() });
+                // Listen for world events
+                const eventsQuery = query(collection(db, 'worldEvents'), where('endTime', '>', new Date()));
+                onSnapshot(eventsQuery, (snapshot) => {
+                    gameState.worldEvents = [];
+                    snapshot.forEach((doc) => {
+                        gameState.worldEvents.push({ id: doc.id, ...doc.data() });
+                    });
+                    updateWorldEventsDisplay();
+                    renderMap();
                 });
-                updateWorldEventsDisplay();
-                renderMap();
-            });
 
-            // Listen for trade offers
-            const tradesQuery = query(collection(db, 'tradeOffers'), where('status', '==', 'open'));
-            onSnapshot(tradesQuery, (snapshot) => {
-                gameState.tradeOffers = [];
-                snapshot.forEach((doc) => {
-                    const trade = { id: doc.id, ...doc.data() };
-                    if (trade.toPlayerId === userId || trade.fromPlayerId === userId) {
-                        gameState.tradeOffers.push(trade);
-                    }
+                // Listen for trade offers
+                const tradesQuery = query(collection(db, 'tradeOffers'), where('status', '==', 'open'));
+                onSnapshot(tradesQuery, (snapshot) => {
+                    gameState.tradeOffers = [];
+                    snapshot.forEach((doc) => {
+                        const trade = { id: doc.id, ...doc.data() };
+                        if (trade.toPlayerId === userId || trade.fromPlayerId === userId) {
+                            gameState.tradeOffers.push(trade);
+                        }
+                    });
+                    updateTradeOffersDisplay();
                 });
-                updateTradeOffersDisplay();
-            });
+            } catch (error) {
+                console.error('Failed to start multiplayer sync:', error);
+            }
         }
 
         // === NAME SELECTION ===
@@ -1121,6 +708,11 @@ async function initializeFirebase() {
                 if (name.length >= 2) {
                     gameState.player.name = name;
                     gameState.player.color = selectedColor;
+                    
+                    // Save to localStorage immediately
+                    localStorage.setItem('arrakis_player_name', name);
+                    localStorage.setItem('arrakis_player_color', selectedColor);
+                    
                     document.body.removeChild(modal);
                     showHouseSelection();
                 }
@@ -1167,6 +759,9 @@ async function initializeFirebase() {
             const house = STATIC_DATA.HOUSES[houseId];
             gameState.player.house = houseId;
             
+            // Save to localStorage
+            localStorage.setItem('arrakis_player_house', houseId);
+            
             // Apply starting bonuses
             if (house.startingBonus.solari) {
                 gameState.resources.solari += house.startingBonus.solari;
@@ -1192,11 +787,14 @@ async function initializeFirebase() {
         }
 
         function completeGameInitialization() {
+            console.log("🎮 Completing game initialization...");
+            
             gameState.gameInitialized = true;
             
             // Hide loading screen
             const loadingScreen = document.getElementById('loadingScreen');
             if (loadingScreen) {
+                console.log("✅ Hiding loading screen");
                 loadingScreen.style.display = 'none';
             }
             
@@ -1219,16 +817,16 @@ async function initializeFirebase() {
 
         // === MAP SYSTEM ===
         function initializeMap() {
-            // Generate more enemies
+            console.log("🗺️ Initializing map...");
+            
+            // Generate enemies
             for (let i = 0; i < 400; i++) {
                 const pos = getRandomPosition();
                 const key = `${pos.x},${pos.y}`;
                 
-                // Check spawn chances
                 const enemyTypes = Object.entries(STATIC_DATA.ENEMIES);
                 for (const [enemyType, enemy] of enemyTypes) {
                     if (Math.random() < enemy.spawnChance) {
-                        gameState.map = gameState.map || { enemies: {}, resources: {}, territories: {} };
                         gameState.map.enemies[key] = {
                             id: generateId(),
                             type: enemyType,
@@ -1251,7 +849,6 @@ async function initializeFirebase() {
                     const weights = [50, 25, 15, 10];
                     const resourceType = weightedRandom(resourceTypes, weights);
                     
-                    gameState.map.resources = gameState.map.resources || {};
                     gameState.map.resources[key] = {
                         id: generateId(),
                         type: resourceType,
@@ -1271,6 +868,12 @@ async function initializeFirebase() {
             const playerX = gameState.player.position.x;
             const playerY = gameState.player.position.y;
             const radius = CONFIG.VIEW_RADIUS;
+            
+            // Update coordinates display
+            const coordsElement = document.getElementById('mapPlayerCoords');
+            if (coordsElement) {
+                coordsElement.textContent = `${playerX},${playerY}`;
+            }
             
             for (let dy = -radius; dy <= radius; dy++) {
                 for (let dx = -radius; dx <= radius; dx++) {
@@ -1432,11 +1035,9 @@ async function initializeFirebase() {
                     showNotification('You already own this territory!', 'warning');
                     return;
                 }
-                // Higher cost to buy from other player
                 cost = Math.floor(existingTerritory.purchasePrice * CONFIG.TERRITORY_COST_MULTIPLIER);
             }
             
-            // Count current territories for scaling cost
             const ownedCount = gameState.player.territories?.length || 0;
             cost = Math.floor(cost * Math.pow(1.2, ownedCount));
             
@@ -1451,8 +1052,6 @@ async function initializeFirebase() {
             
             updateResources({ solari: -cost });
             
-            // Add to territories
-            gameState.map.territories = gameState.map.territories || {};
             gameState.map.territories[key] = {
                 ownerId: userId,
                 ownerName: gameState.player.name,
@@ -1469,34 +1068,8 @@ async function initializeFirebase() {
             
             showNotification(`Territory purchased at ${x},${y}!`, 'success');
             
-            // Compensate previous owner if applicable
-            if (existingTerritory && existingTerritory.ownerId !== userId) {
-                compensatePlayer(existingTerritory.ownerId, Math.floor(cost * 0.8));
-            }
-            
             renderMap();
             saveGame();
-            saveTerritoryToFirebase(key, gameState.map.territories[key]);
-        }
-
-        async function saveTerritoryToFirebase(key, territory) {
-            if (!db) return;
-            try {
-                await setDoc(doc(db, 'territories', key), territory);
-            } catch (error) {
-                console.error('Failed to save territory:', error);
-            }
-        }
-
-        async function compensatePlayer(playerId, amount) {
-            if (!db) return;
-            try {
-                await updateDoc(doc(db, 'players', playerId), {
-                    'resources.solari': increment(amount)
-                });
-            } catch (error) {
-                console.error('Failed to compensate player:', error);
-            }
         }
 
         // === COMBAT SYSTEM ===
@@ -1525,7 +1098,6 @@ async function initializeFirebase() {
             
             const enemy = gameState.combat.enemy;
             
-            // Update displays
             document.getElementById('modalCombatPlayerName').textContent = `${gameState.player.name} (P${gameState.player.prestigeLevel})`;
             document.getElementById('modalCombatPlayerLevel').textContent = `Lv.${gameState.player.level}`;
             document.getElementById('modalCombatPlayerHealth').textContent = `${gameState.player.health}/${gameState.player.maxHealth}`;
@@ -1533,14 +1105,12 @@ async function initializeFirebase() {
             document.getElementById('modalCombatEnemyLevel').textContent = `Lv.${enemy.level}`;
             document.getElementById('modalCombatEnemyHealth').textContent = `${enemy.currentHealth}/${enemy.health}`;
             
-            // Update health bars
             const playerHealthPercent = (gameState.player.health / gameState.player.maxHealth) * 100;
             const enemyHealthPercent = (enemy.currentHealth / enemy.health) * 100;
             
             document.getElementById('modalCombatPlayerHealthBar').style.width = `${playerHealthPercent}%`;
             document.getElementById('modalCombatEnemyHealthBar').style.width = `${enemyHealthPercent}%`;
             
-            // Update combat log
             const logElement = document.getElementById('modalCombatLog');
             if (logElement) {
                 logElement.innerHTML = gameState.combat.log.join('<br>');
@@ -1562,17 +1132,14 @@ async function initializeFirebase() {
                 case 'attack':
                     let damage = gameState.player.attack + Math.floor(Math.random() * 20);
                     
-                    // Equipment bonuses
                     if (gameState.equipment.weapon) {
                         damage += gameState.equipment.weapon.attack || 0;
                     }
                     
-                    // House bonuses
                     if (gameState.player.house === 'harkonnen') {
                         damage = Math.floor(damage * 1.3);
                     }
                     
-                    // Critical hit
                     if (Math.random() * 100 < gameState.player.critChance) {
                         damage *= 2;
                         addCombatLog(`💥 CRITICAL HIT! You deal ${damage} damage!`);
@@ -1608,7 +1175,6 @@ async function initializeFirebase() {
                 return;
             }
             
-            // Enemy turn
             gameState.combat.turn = 'enemy';
             setTimeout(() => enemyTurn(), 1500);
         }
@@ -1617,12 +1183,10 @@ async function initializeFirebase() {
             const enemy = gameState.combat.enemy;
             let damage = enemy.attack + Math.floor(Math.random() * 15);
             
-            // Apply defense
             let defense = gameState.player.defense;
             if (gameState.equipment.armor) defense += gameState.equipment.armor.defense || 0;
             if (gameState.equipment.accessory?.defense) defense += gameState.equipment.accessory.defense;
             
-            // Dodge check
             if (Math.random() * 100 < gameState.player.dodgeChance) {
                 addCombatLog(`💨 You dodge ${enemy.name}'s attack!`);
             } else {
@@ -1646,11 +1210,9 @@ async function initializeFirebase() {
             if (victory) {
                 addCombatLog(`🎉 Victory! ${enemy.name} has been defeated!`);
                 
-                // Rewards
                 let xpGain = enemy.xp || 50;
                 let lootMultiplier = 1;
                 
-                // House bonuses
                 if (gameState.player.house === 'harkonnen') {
                     lootMultiplier = 1.15;
                 }
@@ -1665,7 +1227,6 @@ async function initializeFirebase() {
                     updateResources(rewards);
                 }
                 
-                // Item drops
                 const dropChance = enemy.boss ? 0.8 : enemy.special ? 0.4 : 0.2;
                 if (Math.random() < dropChance) {
                     const items = Object.values(STATIC_DATA.ITEMS);
@@ -1679,11 +1240,9 @@ async function initializeFirebase() {
                 
                 gameState.player.totalEnemiesDefeated++;
                 
-                // Remove enemy from map
                 const key = `${enemy.position.x},${enemy.position.y}`;
                 delete gameState.map.enemies[key];
                 
-                // Show defeat popup
                 showDefeatPopup(`Defeated ${enemy.name}!`);
                 
                 if (enemy.boss) {
@@ -1695,14 +1254,12 @@ async function initializeFirebase() {
             } else {
                 addCombatLog(`💀 Defeat! You have been defeated!`);
                 
-                // Death penalties
                 gameState.player.health = Math.floor(gameState.player.maxHealth * 0.1);
                 const solariLoss = Math.floor(gameState.resources.solari * 0.15);
                 updateResources({ solari: -solariLoss });
                 
                 showDefeatPopup(`Defeated by ${enemy.name}! Lost ${solariLoss} Solari`);
                 
-                // Teleport to base
                 gameState.player.position = { ...gameState.player.basePosition };
             }
             
@@ -1714,151 +1271,6 @@ async function initializeFirebase() {
                 updateUI();
                 saveGame();
             }, 3000);
-        }
-
-        // === TRADING SYSTEM ===
-        function showTradingModal() {
-            const modal = document.createElement('div');
-            modal.className = 'modal-overlay';
-            modal.innerHTML = `
-                <div class="modal-content max-w-4xl">
-                    <h3 class="text-2xl font-orbitron text-amber-400 mb-4">🤝 Player Trading</h3>
-                    
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div>
-                            <h4 class="text-lg font-semibold mb-3">Create Trade Offer</h4>
-                            <div class="space-y-3">
-                                <div>
-                                    <label class="block text-sm mb-1">To Player:</label>
-                                    <select id="tradeToPlayer" class="w-full px-3 py-2 bg-stone-700 border border-stone-600 rounded">
-                                        <option value="">Select Player</option>
-                                        ${Object.entries(gameState.onlinePlayers).map(([id, player]) => 
-                                            `<option value="${id}">${player.name} (P${player.prestigeLevel || 0})</option>`
-                                        ).join('')}
-                                    </select>
-                                </div>
-                                
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <h5 class="font-medium mb-2">Your Offer:</h5>
-                                        <div id="yourTradeItems" class="space-y-2 max-h-40 overflow-y-auto">
-                                            <!-- Trade items will be populated here -->
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <h5 class="font-medium mb-2">Request:</h5>
-                                        <div class="space-y-2">
-                                            <input type="number" id="requestSolari" placeholder="Solari" class="w-full px-2 py-1 bg-stone-700 rounded text-sm">
-                                            <input type="number" id="requestSpice" placeholder="Spice" class="w-full px-2 py-1 bg-stone-700 rounded text-sm">
-                                            <input type="number" id="requestMelange" placeholder="Melange" class="w-full px-2 py-1 bg-stone-700 rounded text-sm">
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <button id="createTradeBtn" class="w-full py-2 bg-green-600 hover:bg-green-700 rounded">Create Trade Offer</button>
-                            </div>
-                        </div>
-                        
-                        <div>
-                            <h4 class="text-lg font-semibold mb-3">Active Trade Offers</h4>
-                            <div id="activeTradeOffers" class="space-y-2 max-h-96 overflow-y-auto">
-                                <!-- Active trades will be populated here -->
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <button class="mt-4 px-4 py-2 bg-stone-600 hover:bg-stone-700 rounded" onclick="closeTradingModal()">Close</button>
-                </div>
-            `;
-            
-            document.body.appendChild(modal);
-            updateTradingModal(modal);
-            
-            window.closeTradingModal = () => {
-                document.body.removeChild(modal);
-                delete window.closeTradingModal;
-            };
-        }
-
-        function updateTradingModal(modal) {
-            // Populate your trade items
-            const yourItems = modal.querySelector('#yourTradeItems');
-            yourItems.innerHTML = '';
-            
-            // Add resources
-            Object.entries(gameState.resources).forEach(([resource, amount]) => {
-                if (amount > 0) {
-                    const item = document.createElement('div');
-                    item.className = 'trading-item p-2 bg-stone-700 rounded cursor-pointer';
-                    item.innerHTML = `
-                        <div class="flex justify-between">
-                            <span>${resource}: ${amount}</span>
-                            <input type="number" class="w-16 px-1 bg-stone-800 rounded text-xs" 
-                                   max="${amount}" min="0" data-resource="${resource}">
-                        </div>
-                    `;
-                    yourItems.appendChild(item);
-                }
-            });
-            
-            // Add inventory items
-            gameState.inventory.forEach((item, index) => {
-                if (item) {
-                    const itemDiv = document.createElement('div');
-                    itemDiv.className = 'trading-item p-2 bg-stone-700 rounded cursor-pointer';
-                    itemDiv.innerHTML = `
-                        <div class="flex items-center justify-between">
-                            <span>${item.icon} ${item.name}</span>
-                            <input type="checkbox" data-item-index="${index}">
-                        </div>
-                    `;
-                    yourItems.appendChild(itemDiv);
-                }
-            });
-        }
-
-        async function createTradeOffer(toPlayerId, offerItems, requestItems) {
-            if (!db) return;
-            
-            try {
-                await addDoc(collection(db, 'tradeOffers'), {
-                    fromPlayerId: userId,
-                    fromPlayerName: gameState.player.name,
-                    toPlayerId: toPlayerId,
-                    offerItems: offerItems,
-                    requestItems: requestItems,
-                    status: 'open',
-                    createdAt: serverTimestamp()
-                });
-                
-                showNotification('Trade offer created!', 'success');
-            } catch (error) {
-                console.error('Failed to create trade offer:', error);
-                showNotification('Failed to create trade offer', 'error');
-            }
-        }
-
-        // === WORLD EVENTS ===
-        async function createWorldEvent() {
-            if (!db) return;
-            
-            const eventTemplate = STATIC_DATA.WORLD_EVENTS[Math.floor(Math.random() * STATIC_DATA.WORLD_EVENTS.length)];
-            const position = getRandomPosition();
-            
-            const worldEvent = {
-                ...eventTemplate,
-                position: position,
-                startTime: new Date(),
-                endTime: new Date(Date.now() + eventTemplate.duration),
-                participants: []
-            };
-            
-            try {
-                await addDoc(collection(db, 'worldEvents'), worldEvent);
-                await sendWorldMessage(`World Event: ${eventTemplate.name} at ${position.x},${position.y}!`, 'event');
-            } catch (error) {
-                console.error('Failed to create world event:', error);
-            }
         }
 
         // === WORLD CHAT ===
@@ -1897,6 +1309,113 @@ async function initializeFirebase() {
             }).join('');
             
             chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // === UTILITY FUNCTIONS ===
+        function generateId() {
+            return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+        }
+
+        function getRandomPosition() {
+            return {
+                x: Math.floor(Math.random() * CONFIG.MAP_SIZE),
+                y: Math.floor(Math.random() * CONFIG.MAP_SIZE)
+            };
+        }
+
+        function weightedRandom(items, weights) {
+            const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+            let random = Math.random() * totalWeight;
+            
+            for (let i = 0; i < items.length; i++) {
+                random -= weights[i];
+                if (random <= 0) {
+                    return items[i];
+                }
+            }
+            return items[items.length - 1];
+        }
+
+        function addExperience(amount) {
+            const houseBonus = gameState.player.house === 'atreides' ? 1.25 : 1;
+            const finalAmount = Math.floor(amount * houseBonus);
+            
+            gameState.player.experience += finalAmount;
+            
+            while (gameState.player.experience >= gameState.player.experienceToNext) {
+                levelUp();
+            }
+        }
+
+        function levelUp() {
+            gameState.player.level++;
+            gameState.player.experience -= gameState.player.experienceToNext;
+            gameState.player.experienceToNext = Math.floor(CONFIG.XP_BASE * Math.pow(CONFIG.XP_FACTOR, gameState.player.level - 1));
+            
+            gameState.player.maxHealth += 15;
+            gameState.player.health = gameState.player.maxHealth;
+            gameState.player.maxEnergy += 8;
+            gameState.player.energy = gameState.player.maxEnergy;
+            gameState.player.attack += 4;
+            gameState.player.defense += 3;
+            
+            showNotification(`🌟 LEVEL UP! Now level ${gameState.player.level}!`, 'legendary');
+            
+            if (gameState.player.level === CONFIG.ENERGY_PRODUCTION_UNLOCK_LEVEL) {
+                showNotification('🔓 Energy buildings unlocked!', 'info');
+            }
+        }
+
+        function updateResources(changes) {
+            Object.entries(changes).forEach(([resource, amount]) => {
+                if (gameState.resources[resource] !== undefined) {
+                    gameState.resources[resource] = Math.max(0, gameState.resources[resource] + amount);
+                    
+                    if (resource === 'spice' && amount > 0) {
+                        gameState.player.lifetimeSpice += amount;
+                    }
+                }
+            });
+            updateResourceDisplay();
+        }
+
+        function addToInventory(item) {
+            const emptySlot = gameState.inventory.findIndex(slot => slot === null);
+            if (emptySlot === -1) {
+                showNotification('Inventory full!', 'warning');
+                return false;
+            }
+            
+            gameState.inventory[emptySlot] = { ...item, id: generateId() };
+            updateInventoryDisplay();
+            return true;
+        }
+
+        function harvestResourceNode(resource) {
+            if (gameState.player.energy < 20) {
+                showNotification('Not enough energy!', 'error');
+                return;
+            }
+            
+            gameState.player.energy -= 20;
+            const amount = Math.min(15, resource.amount);
+            resource.amount -= amount;
+            
+            let finalAmount = amount;
+            if (gameState.player.house === 'harkonnen') {
+                finalAmount = Math.floor(amount * 1.2);
+            } else if (gameState.player.house === 'fremen' && resource.type === 'spice') {
+                finalAmount = Math.floor(amount * 1.4);
+            }
+            
+            updateResources({ [resource.type]: finalAmount });
+            
+            if (resource.amount <= 0) {
+                const key = `${resource.position.x},${resource.position.y}`;
+                delete gameState.map.resources[key];
+            }
+            
+            renderMap();
         }
 
         // === NOTIFICATIONS & POPUPS ===
@@ -1945,116 +1464,6 @@ async function initializeFirebase() {
             }, 6000);
         }
 
-        // === UTILITY FUNCTIONS ===
-        function generateId() {
-            return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
-        }
-
-        function getRandomPosition() {
-            return {
-                x: Math.floor(Math.random() * CONFIG.MAP_SIZE),
-                y: Math.floor(Math.random() * CONFIG.MAP_SIZE)
-            };
-        }
-
-        function weightedRandom(items, weights) {
-            const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
-            let random = Math.random() * totalWeight;
-            
-            for (let i = 0; i < items.length; i++) {
-                random -= weights[i];
-                if (random <= 0) {
-                    return items[i];
-                }
-            }
-            return items[items.length - 1];
-        }
-
-        function addExperience(amount) {
-            const houseBonus = gameState.player.house === 'atreides' ? 1.25 : 1;
-            const finalAmount = Math.floor(amount * houseBonus);
-            
-            gameState.player.experience += finalAmount;
-            
-            while (gameState.player.experience >= gameState.player.experienceToNext) {
-                levelUp();
-            }
-        }
-
-        function levelUp() {
-            gameState.player.level++;
-            gameState.player.experience -= gameState.player.experienceToNext;
-            gameState.player.experienceToNext = Math.floor(CONFIG.XP_BASE * Math.pow(CONFIG.XP_FACTOR, gameState.player.level - 1));
-            
-            // Stat increases
-            gameState.player.maxHealth += 15;
-            gameState.player.health = gameState.player.maxHealth;
-            gameState.player.maxEnergy += 8;
-            gameState.player.energy = gameState.player.maxEnergy;
-            gameState.player.attack += 4;
-            gameState.player.defense += 3;
-            
-            showNotification(`🌟 LEVEL UP! Now level ${gameState.player.level}!`, 'legendary');
-            
-            // Check for building unlocks
-            if (gameState.player.level === CONFIG.ENERGY_PRODUCTION_UNLOCK_LEVEL) {
-                showNotification('🔓 Energy buildings unlocked!', 'info');
-            }
-        }
-
-        function updateResources(changes) {
-            Object.entries(changes).forEach(([resource, amount]) => {
-                if (gameState.resources[resource] !== undefined) {
-                    gameState.resources[resource] = Math.max(0, gameState.resources[resource] + amount);
-                    
-                    if (resource === 'spice' && amount > 0) {
-                        gameState.player.lifetimeSpice += amount;
-                    }
-                }
-            });
-            updateResourceDisplay();
-        }
-
-        function addToInventory(item) {
-            const emptySlot = gameState.inventory.findIndex(slot => slot === null);
-            if (emptySlot === -1) {
-                showNotification('Inventory full!', 'warning');
-                return false;
-            }
-            
-            gameState.inventory[emptySlot] = { ...item, id: generateId() };
-            updateInventoryDisplay();
-            return true;
-        }
-
-        function harvestResourceNode(resource) {
-            if (gameState.player.energy < 20) {
-                showNotification('Not enough energy!', 'error');
-                return;
-            }
-            
-            gameState.player.energy -= 20;
-            const amount = Math.min(15, resource.amount);
-            resource.amount -= amount;
-            
-            // House bonuses
-            let finalAmount = amount;
-            if (gameState.player.house === 'harkonnen') {
-                finalAmount = Math.floor(amount * 1.2);
-            } else if (gameState.player.house === 'fremen' && resource.type === 'spice') {
-                finalAmount = Math.floor(amount * 1.4);
-            }
-            
-            updateResources({ [resource.type]: finalAmount });
-            
-            if (resource.amount <= 0) {
-                const key = `${resource.position.x},${resource.position.y}`;
-                delete gameState.map.resources[key];
-            }
-            
-            renderMap();
-        }
-
         // === UI UPDATES ===
         function updateResourceDisplay() {
             Object.entries(gameState.resources).forEach(([resource, amount]) => {
@@ -2071,7 +1480,6 @@ async function initializeFirebase() {
             document.getElementById('statLevel').textContent = gameState.player.level;
             document.getElementById('statExp').textContent = `${gameState.player.experience}/${gameState.player.experienceToNext}`;
             
-            // Update progress bars
             const healthPercent = (gameState.player.health / gameState.player.maxHealth) * 100;
             const energyPercent = (gameState.player.energy / gameState.player.maxEnergy) * 100;
             const expPercent = (gameState.player.experience / gameState.player.experienceToNext) * 100;
@@ -2080,8 +1488,7 @@ async function initializeFirebase() {
             document.getElementById('barEnergy').style.width = `${energyPercent}%`;
             document.getElementById('barExp').style.width = `${expPercent}%`;
             
-            // Header displays
-            document.getElementById('playerName').textContent = gameState.player.name;
+            document.getElementById('playerName').textContent = gameState.player.name || 'Loading...';
             document.getElementById('playerPrestige').textContent = gameState.player.prestigeLevel;
             if (gameState.player.house) {
                 const house = STATIC_DATA.HOUSES[gameState.player.house];
@@ -2164,7 +1571,12 @@ async function initializeFirebase() {
 
         function updateWorldEventsDisplay() {
             const eventsContainer = document.getElementById('worldEventsContainer');
-            if (!eventsContainer || !gameState.worldEvents.length) return;
+            if (!eventsContainer) return;
+            
+            if (!gameState.worldEvents.length) {
+                eventsContainer.innerHTML = '<p class="text-stone-400 text-center">No active events</p>';
+                return;
+            }
             
             eventsContainer.innerHTML = gameState.worldEvents.map(event => {
                 const timeLeft = Math.max(0, Math.floor((new Date(event.endTime.seconds * 1000) - Date.now()) / 1000));
@@ -2185,14 +1597,19 @@ async function initializeFirebase() {
             const tradesContainer = document.getElementById('tradeOffersContainer');
             if (!tradesContainer) return;
             
+            if (!gameState.tradeOffers.length) {
+                tradesContainer.innerHTML = '<p class="text-stone-400 text-center">No trade offers</p>';
+                return;
+            }
+            
             tradesContainer.innerHTML = gameState.tradeOffers.map(trade => `
                 <div class="bg-stone-700 p-3 rounded border">
                     <div class="font-semibold">${trade.fromPlayerName} → You</div>
                     <div class="text-sm text-stone-300">Offering: ${JSON.stringify(trade.offerItems)}</div>
                     <div class="text-sm text-stone-300">Requesting: ${JSON.stringify(trade.requestItems)}</div>
                     <div class="mt-2 space-x-2">
-                        <button class="px-3 py-1 bg-green-600 rounded text-xs" onclick="acceptTrade('${trade.id}')">Accept</button>
-                        <button class="px-3 py-1 bg-red-600 rounded text-xs" onclick="rejectTrade('${trade.id}')">Reject</button>
+                        <button class="px-3 py-1 bg-green-600 rounded text-xs">Accept</button>
+                        <button class="px-3 py-1 bg-red-600 rounded text-xs">Reject</button>
                     </div>
                 </div>
             `).join('');
@@ -2210,6 +1627,8 @@ async function initializeFirebase() {
 
         // === GAME LOOP ===
         function startGameLoop() {
+            console.log("🔄 Starting game loop...");
+            
             setInterval(() => {
                 // Energy regeneration
                 if (Date.now() - gameState.lastEnergyRegen >= CONFIG.ENERGY_REGEN_INTERVAL) {
@@ -2220,7 +1639,7 @@ async function initializeFirebase() {
                 
                 // Territory income
                 if (gameState.player.territories?.length > 0) {
-                    const income = gameState.player.territories.length * 5; // 5 solari per territory per loop
+                    const income = gameState.player.territories.length * 5;
                     updateResources({ solari: income });
                 }
                 
@@ -2234,36 +1653,40 @@ async function initializeFirebase() {
             
             // Longer intervals
             setInterval(() => {
-                // Create world events (only first player online to prevent spam)
-                if (Math.random() < 0.1 && Object.keys(gameState.onlinePlayers).length < 5) {
-                    createWorldEvent();
-                }
-                
-                // Show random quote
                 if (Math.random() < 0.05) {
                     const quote = DUNE_QUOTES[Math.floor(Math.random() * DUNE_QUOTES.length)];
                     showQuotePopup(`"${quote}"`);
                 }
-            }, 60000); // Every minute
+            }, 60000);
+        }
+
+        // Trading modal function (for global access)
+        function showTradingModal() {
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay';
+            modal.innerHTML = `
+                <div class="modal-content max-w-4xl">
+                    <h3 class="text-2xl font-orbitron text-amber-400 mb-4">🤝 Player Trading</h3>
+                    <p class="text-center text-stone-400 mb-6">Trading system coming soon!</p>
+                    <button class="px-4 py-2 bg-stone-600 hover:bg-stone-700 rounded" onclick="this.closest('.modal-overlay').remove()">Close</button>
+                </div>
+            `;
+            document.body.appendChild(modal);
         }
 
         // === EVENT LISTENERS ===
-document.addEventListener('DOMContentLoaded', async () => {
-    console.log("DOM loaded, starting initialization...");
-    
-    // Test - hide loading screen after 5 seconds regardless
-    setTimeout(() => {
-        console.log("5 second timeout - hiding loading screen");
-        const loadingScreen = document.getElementById('loadingScreen');
-        if (loadingScreen) {
-            loadingScreen.style.display = 'none';
-            showNotification("Debug: Forced loading screen hide", 'info');
-        }
-    }, 5000);
-    
-    await initializeFirebase();
-    // ... rest of your existing DOMContentLoaded code
-});
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log("📱 DOM loaded, starting initialization...");
+            
+            // Set timeout to force start offline mode if Firebase takes too long
+            setTimeout(() => {
+                if (!gameState.gameInitialized) {
+                    console.log("⏰ Timeout reached, starting offline mode");
+                    startOfflineMode();
+                }
+            }, 8000);
+            
+            await initializeFirebase();
             
             // Tab switching
             document.querySelectorAll('.tab-button').forEach(button => {
@@ -2315,7 +1738,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                         break;
                     case ' ':
                         e.preventDefault();
-                        // Harvest if on resource
                         const key = `${gameState.player.position.x},${gameState.player.position.y}`;
                         if (gameState.map?.resources?.[key]) {
                             harvestResourceNode(gameState.map.resources[key]);
@@ -2567,10 +1989,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             <!-- Empire Tab -->
             <div id="empireTab" class="tab-content hidden flex-1 p-6 overflow-y-auto">
                 <h2 class="text-3xl font-orbitron text-amber-400 mb-6">🏗️ Spice Empire Management</h2>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <!-- Buildings will be populated here -->
-                </div>
+                <p class="text-center text-stone-400">Empire building features coming soon!</p>
             </div>
             
             <!-- Multiplayer Tab -->
@@ -2598,13 +2017,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <!-- Trade Offers -->
                     <div class="bg-stone-800 p-6 rounded-lg border border-stone-600">
                         <h3 class="text-xl font-semibold mb-4 text-amber-300">🤝 Trade Offers</h3>
-                        <div id="tradeOffersContainer" class="space-y-2 max-h-60 overflow-y-auto"></div>
+                        <div id="tradeOffersContainer" class="space-y-2 max-h-60 overflow-y-auto">
+                            <p class="text-stone-400 text-center">No trade offers</p>
+                        </div>
                     </div>
                     
                     <!-- Rankings -->
                     <div class="bg-stone-800 p-6 rounded-lg border border-stone-600">
                         <h3 class="text-xl font-semibold mb-4 text-amber-300">🏆 Rankings</h3>
-                        <div id="rankingsContainer" class="space-y-2 max-h-60 overflow-y-auto"></div>
+                        <div id="rankingsContainer" class="space-y-2 max-h-60 overflow-y-auto">
+                            <p class="text-stone-400 text-center">Rankings coming soon!</p>
+                        </div>
                     </div>
                 </div>
             </div>
